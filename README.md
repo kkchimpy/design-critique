@@ -1,4 +1,4 @@
-# LLM Council
+# LLM Council, but it's for design-critique
 
 A local-first multi-model design review tool inspired by [Karpathy's LLM Council](https://github.com/karpathy/llm-council). Upload a design, let several OpenRouter models critique it, inspect the anonymous peer review, and download a self-contained HTML verdict.
 
