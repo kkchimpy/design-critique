@@ -1,0 +1,82 @@
+import tempfile
+import unittest
+
+from backend import storage
+from backend.council import calculate_aggregate_rankings, parse_ranking_from_text
+from backend.export import render_verdict_html
+
+
+class PublicFlowTests(unittest.TestCase):
+    def test_ranking_parser_and_aggregate_are_transparent(self):
+        ranking = """Evaluation\n\nFINAL RANKING:\n1. Response A\n2. Response A\n3. Response B"""
+        self.assertEqual(
+            parse_ranking_from_text(ranking),
+            ["Response A", "Response A", "Response B"],
+        )
+
+        aggregate = calculate_aggregate_rankings(
+            [
+                {"ranking": ranking, "parsed_ranking": parse_ranking_from_text(ranking)},
+            ],
+            {"Response A": "openai/gpt-5.1", "Response B": "x-ai/grok-4"},
+        )
+        self.assertEqual(aggregate[0]["model"], "openai/gpt-5.1")
+        self.assertEqual(aggregate[0]["rankings_count"], 1)
+        self.assertEqual(aggregate[1]["rankings_count"], 1)
+
+    def test_assistant_metadata_survives_storage_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original_data_dir = storage.DATA_DIR
+            storage.DATA_DIR = directory
+            try:
+                conversation_id = "11111111-1111-4111-8111-111111111111"
+                storage.create_conversation(conversation_id)
+                storage.add_assistant_message(
+                    conversation_id,
+                    [],
+                    [],
+                    {"model": "google/gemini-3-pro-preview", "response": "done"},
+                    metadata={
+                        "label_to_model": {"Response A": "openai/gpt-5.1"},
+                        "aggregate_rankings": [],
+                        "council_models": ["openai/gpt-5.1"],
+                    },
+                )
+                saved = storage.get_conversation(conversation_id)
+                self.assertEqual(
+                    saved["messages"][0]["metadata"]["council_models"],
+                    ["openai/gpt-5.1"],
+                )
+            finally:
+                storage.DATA_DIR = original_data_dir
+
+    def test_export_strips_unsafe_markup_and_embeds_image(self):
+        html = render_verdict_html(
+            title="Public review",
+            context="Check the primary action",
+            verdict_markdown="## Council Verdict\n\n<script>alert(1)</script>\n\n[bad](javascript:alert(2))",
+            image_data_url="data:image/png;base64,AAAA",
+            annotations=[{"x": 50, "y": 50, "title": "Main action", "severity": 2}],
+        )
+        self.assertIn("data:image/png;base64,AAAA", html)
+        self.assertNotIn("<script>alert(1)</script>", html)
+        self.assertNotIn("javascript:alert(2)", html)
+        self.assertNotIn("__VERDICT_JSON__", html)
+
+    def test_invalid_conversation_id_does_not_touch_the_filesystem(self):
+        self.assertIsNone(storage.get_conversation("../secret"))
+        self.assertIsNone(storage.get_conversation_path("../secret"))
+        self.assertFalse(storage.delete_conversation("not-a-uuid"))
+
+    def test_local_session_token_is_compared_safely(self):
+        from backend.local_auth import rotate_app_token, token_matches
+
+        token = rotate_app_token()
+        self.assertTrue(token_matches(token))
+        self.assertFalse(token_matches("nope"))
+        self.assertFalse(token_matches(None))
+        self.assertFalse(token_matches(token[:-1] + ("a" if token[-1] != "a" else "b")))
+
+
+if __name__ == "__main__":
+    unittest.main()

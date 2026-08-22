@@ -1,0 +1,321 @@
+/* ─── Sidebar shell ─────────────────────────────────────────────────────── */
+.sidebar {
+  width: 256px;
+  max-height: calc(100vh - 32px);
+  background: var(--color-surface-default);
+  border-radius: var(--radius-large);
+  box-shadow: var(--shadow-xlarge);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 40;
+}
+
+/* Collapsed: standalone fixed trigger with no layout impact */
+.sidebar--collapsed {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 50;
+  width: auto;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+  max-height: none;
+}
+
+.sidebar--overlay {
+  pointer-events: auto;
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  border: none;
+  background: rgba(247, 247, 247, 0.24);
+  backdrop-filter: blur(2px);
+  cursor: default;
+}
+
+.sidebar-fade {
+  animation: sidebar-fade-in 160ms ease-out both;
+}
+
+.sidebar-slide {
+  animation: sidebar-slide-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes sidebar-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sidebar-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 12px;
+  position: relative;
+}
+
+.sidebar-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-type-default);
+  letter-spacing: -0.3px;
+}
+
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-small);
+  color: var(--color-type-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--color-type-default);
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-settings-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-small);
+  color: var(--color-type-secondary);
+  cursor: pointer;
+  transition: color 0.15s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.sidebar-settings-btn:hover {
+  color: var(--color-type-default);
+}
+
+/* Standalone floating expand button — Chameleon icon-button: size small, variant neutral-tertiary */
+.sidebar-expand-btn {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-small);
+  color: var(--color-type-secondary); /* icon-color-on-neutral-tertiary-default */
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  line-height: 0;
+}
+
+.sidebar-expand-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-expand-btn:hover {
+  color: var(--color-type-default);
+  background: var(--color-interactive-secondary-hover);
+}
+
+.sidebar-expand-btn:active {
+  transform: scale(0.96);
+}
+
+/* ─── New conversation button ─────────────────────────────────────────────── */
+.sidebar-new-btn-row {
+  padding: 12px;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-secondary);
+}
+
+.sidebar-new-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--color-interactive-primary);
+  color: var(--color-interactive-on-primary);
+  border: none;
+  border-radius: var(--radius-small);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sidebar-new-btn:hover {
+  opacity: 0.85;
+}
+
+/* ─── Conversation list ───────────────────────────────────────────────────── */
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 16px;
+}
+
+/* ─── Nav section ────────────────────────────────────────────────────────── */
+.nav-section {
+  margin-top: 0;
+}
+
+.nav-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+
+.nav-section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-section-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-type-default);
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.nav-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--color-type-default);
+  white-space: nowrap;
+}
+
+/* ─── Counter badge (placeholder for Chameleon Counter) ──────────────────── */
+.nav-counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 12px;
+  background: var(--color-surface-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+  color: var(--color-type-secondary);
+  min-width: 24px;
+}
+
+/* ─── Nav drawer item (placeholder for Chameleon Nav drawer items) ───────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 4px 16px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.nav-item:hover {
+  background: var(--color-interactive-secondary-hover);
+}
+
+.nav-item--active {
+  background: var(--color-interactive-secondary-hover);
+}
+
+.nav-item--active .nav-item-text {
+  font-weight: 500;
+}
+
+.nav-item-indent {
+  flex-shrink: 0;
+  width: 28px;
+}
+
+.nav-item-text {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 24px;
+  color: var(--color-type-default);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ─── Delete button (appears on nav-item hover) ──────────────────────────── */
+.nav-item-delete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-type-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.nav-item:hover .nav-item-delete {
+  opacity: 1;
+}
+
+.nav-item-delete:hover {
+  background: #fde8e8;
+  color: #c0392b;
+}
+
+/* ─── Empty hint ─────────────────────────────────────────────────────────── */
+.nav-empty {
+  padding: 4px 16px 4px 44px;
+  font-size: 12px;
+  color: var(--color-type-muted);
+  font-style: italic;
+}
+

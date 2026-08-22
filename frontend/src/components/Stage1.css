@@ -1,0 +1,73 @@
+/* ─── Shared stage card ─────────────────────────────────────────────────── */
+.stage {
+  margin: 20px 0;
+  padding: 24px;
+  background: var(--color-surface-default);
+  border-radius: 18px;
+  border: 1px solid rgba(152, 182, 201, 0.35);
+  box-shadow: 0 16px 40px rgba(70, 91, 107, 0.06);
+}
+
+.stage-title {
+  margin: 0 0 18px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-type-secondary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ─── Chameleon-style Tabs ──────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid rgba(152, 182, 201, 0.28);
+  padding-bottom: 8px;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  min-height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--color-type-secondary);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: 'SF Pro Text', -apple-system, BlinkMacSystemFont, sans-serif;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.tab:hover {
+  background: rgba(152, 182, 201, 0.12);
+  color: var(--color-type-default);
+}
+
+.tab.active {
+  color: var(--color-type-default);
+  font-weight: 600;
+  background: rgba(152, 182, 201, 0.14);
+  border-color: rgba(152, 182, 201, 0.36);
+}
+
+/* ─── Tab content ───────────────────────────────────────────────────────── */
+.tab-content {
+  background: var(--color-surface-default);
+  border-radius: 12px;
+}
+
+
+
+.response-text {
+  color: var(--color-type-default);
+}
+
+

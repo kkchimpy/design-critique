@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Keys and secrets
+.env
+.env.*
+!.env.example
+frontend/.env
+frontend/.env.local
+
+# Local/generated app output. Keep folder structure via .gitkeep files,
+# but do not track user-generated answers, pages, or conversations.
+data/*
+!data/conversations/
+data/conversations/*
+!data/conversations/.gitkeep
+
+# Local agent customization
+.agents/
+
+# OS metadata
+.DS_Store
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/test-results/
