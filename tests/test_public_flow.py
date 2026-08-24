@@ -1,9 +1,17 @@
+import asyncio
 import tempfile
 import unittest
+from unittest.mock import patch
+
 from pydantic import ValidationError
 
 from backend import storage
-from backend.council import calculate_aggregate_rankings, parse_ranking_from_text
+from backend.council import (
+    calculate_aggregate_rankings,
+    parse_ranking_from_text,
+    stage0_ground_truth,
+    stage1_collect_design_feedback,
+)
 from backend.export import render_verdict_html
 from backend.main import SendMessageRequest
 from backend.markdown_renderer import render_markdown, render_ranking
@@ -98,6 +106,31 @@ class PublicFlowTests(unittest.TestCase):
                 self.assertEqual(storage.list_conversations(), [])
             finally:
                 storage.DATA_DIR = original_data_dir
+
+    def test_design_mode_stage0_and_stage1_build_prompts_without_crashing(self):
+        # Regression test: stage0_ground_truth previously referenced an
+        # undefined `stage0_result` variable (a leftover from a prompt-size
+        # optimization meant for stage1), causing a NameError on every
+        # design-critique review. query_model is mocked so this exercises the
+        # real prompt-building code paths without hitting the network.
+        fake_image = "data:image/png;base64,iVBORw0KGgo="
+
+        with patch("backend.council.query_model") as mocked_query_model:
+            mocked_query_model.return_value = {"content": "{}"}
+            stage0_result = asyncio.run(stage0_ground_truth(fake_image, "First-time user onboarding"))
+            self.assertIsInstance(stage0_result, dict)
+
+        with patch("backend.council.query_models_parallel") as mocked_query_models_parallel:
+            mocked_query_models_parallel.return_value = {"openai/gpt-5.1": {"content": "critique"}}
+            stage1_results = asyncio.run(
+                stage1_collect_design_feedback(
+                    fake_image,
+                    "First-time user onboarding",
+                    models=["openai/gpt-5.1"],
+                    stage0_result=stage0_result,
+                )
+            )
+            self.assertEqual(stage1_results, [{"model": "openai/gpt-5.1", "response": "critique"}])
 
     def test_canonical_markdown_renderer_supports_shared_contract(self):
         rendered = render_markdown(
