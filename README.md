@@ -35,7 +35,7 @@ This project is meant to be cloned and run on your own computer. Do not deploy i
 
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
-- Node.js 18+
+- Node.js 20.19+ or 22.12+ (required by Vite 7; check with `node --version`)
 - An OpenRouter account with credits or an appropriate spending limit
 
 **macOS / Linux:**
