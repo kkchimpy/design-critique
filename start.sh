@@ -15,7 +15,7 @@ echo "────────────────────────�
 
 if ! command -v uv &>/dev/null; then
   echo "Installing uv (Python package manager)…"
-  curl -LsSf https://astral.sh/uv/install.sh | sh
+  curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 https://astral.sh/uv/install.sh | sh
   export PATH="$HOME/.cargo/bin:$PATH"
 fi
 ok "uv $(uv --version | awk '{print $2}')"
@@ -44,6 +44,10 @@ for _ in $(seq 1 10); do
   sleep 0.5
   curl -sf http://localhost:8001/health &>/dev/null && break
 done
+if ! curl -sf http://localhost:8001/health &>/dev/null; then
+  kill "$BACKEND_PID" 2>/dev/null || true
+  fail "Backend failed to start."
+fi
 
 npm --prefix "$FRONTEND" run dev -- --open &>/dev/null &
 FRONTEND_PID=$!

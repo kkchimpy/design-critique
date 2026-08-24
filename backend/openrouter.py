@@ -3,7 +3,9 @@
 import asyncio
 import httpx
 from typing import List, Dict, Any, Optional
-from .config import get_effective_api_key, OPENROUTER_API_URL
+from .config import CHAIRMAN_MODEL, COUNCIL_MODELS, get_effective_api_key, MAX_MODEL_OUTPUT_TOKENS, OPENROUTER_API_URL
+
+OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 
 
 # A single shared client reused across all requests. Reusing one client keeps
@@ -11,6 +13,7 @@ from .config import get_effective_api_key, OPENROUTER_API_URL
 # LLM call (3 models x multiple stages per message adds up quickly).
 _client: Optional[httpx.AsyncClient] = None
 _client_lock = asyncio.Lock()
+_request_slots = asyncio.Semaphore(8)
 
 
 async def get_client() -> httpx.AsyncClient:
@@ -66,16 +69,18 @@ async def query_model(
     payload = {
         "model": model,
         "messages": messages,
+        "max_tokens": MAX_MODEL_OUTPUT_TOKENS,
     }
 
     try:
         client = await get_client()
-        response = await client.post(
-            OPENROUTER_API_URL,
-            headers=headers,
-            json=payload,
-            timeout=timeout,
-        )
+        async with _request_slots:
+            response = await client.post(
+                OPENROUTER_API_URL,
+                headers=headers,
+                json=payload,
+                timeout=timeout,
+            )
         response.raise_for_status()
 
         data = response.json()
@@ -86,6 +91,19 @@ async def query_model(
             'reasoning_details': message.get('reasoning_details')
         }
 
+    except httpx.HTTPStatusError as e:
+        detail = e.response.reason_phrase
+        try:
+            payload = e.response.json()
+            error = payload.get("error") if isinstance(payload, dict) else None
+            if isinstance(error, dict) and error.get("message"):
+                detail = error["message"]
+            elif isinstance(error, str):
+                detail = error
+        except Exception:
+            detail = (e.response.text or detail)[:300]
+        print(f"Error querying model {model}: HTTP {e.response.status_code} {detail}")
+        return None
     except Exception as e:
         print(f"Error querying model {model}: {type(e).__name__}")
         return None
@@ -109,7 +127,42 @@ async def query_models_parallel(
     tasks = [query_model(model, messages) for model in models]
 
     # Wait for all to complete
-    responses = await asyncio.gather(*tasks)
+    responses = await asyncio.gather(*tasks, return_exceptions=True)
+    responses = [None if isinstance(response, Exception) else response for response in responses]
 
     # Map models to their responses
     return {model: response for model, response in zip(models, responses)}
+
+
+async def warn_if_models_unavailable() -> None:
+    """
+    Best-effort startup check: fetch OpenRouter's public model catalog (no API
+    key required) and print a warning for any configured model ID that isn't
+    currently listed. This does not block startup and never raises — it only
+    helps a self-hosting user notice a stale ``backend/config.py`` model ID
+    before running a review, instead of getting a generic "all council
+    members failed" error later.
+    """
+    try:
+        client = await get_client()
+        response = await client.get(OPENROUTER_MODELS_URL, timeout=10.0)
+        response.raise_for_status()
+        data = response.json()
+        available = {item.get("id") for item in data.get("data", []) if isinstance(item, dict)}
+    except Exception:
+        # Network issues, rate limits, or API shape changes should never
+        # prevent the app from starting.
+        return
+
+    if not available:
+        return
+
+    configured = set(COUNCIL_MODELS) | {CHAIRMAN_MODEL}
+    missing = sorted(configured - available)
+    if missing:
+        print(
+            "WARNING: the following model IDs in backend/config.py were not found "
+            f"in OpenRouter's current model list: {', '.join(missing)}. "
+            "Reviews using them will fail until you update COUNCIL_MODELS/CHAIRMAN_MODEL "
+            "to models that exist on your OpenRouter account."
+        )

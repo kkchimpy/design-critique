@@ -52,7 +52,10 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
 
       <div className="tab-content">
         <div className="ranking-content markdown-content">
-          <MarkdownRenderer>{deAnonymizeText(activeRanking?.ranking || '', labelToModel)}</MarkdownRenderer>
+          <MarkdownRenderer
+            html={activeRanking?.ranking_html}
+            fallback={deAnonymizeText(activeRanking?.ranking || '', labelToModel)}
+          />
         </div>
 
         {activeRanking?.parsed_ranking &&

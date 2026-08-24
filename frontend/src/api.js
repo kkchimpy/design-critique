@@ -2,15 +2,35 @@
  * API client for the LLM Council backend.
  */
 
-// In local dev, Vite proxies /api → http://localhost:8001 (see vite.config.js),
-// so API_BASE stays empty. Override with VITE_API_BASE in frontend/.env.local
-// only if your backend runs on a different host/port.
+// In local dev, Vite proxies /api → http://localhost:8001 (see vite.config.js).
+// API keys must never be forwarded to an arbitrary VITE_API_BASE host.
 const API_BASE = import.meta.env.VITE_API_BASE || '';
+
+function isLoopbackHost(hostname) {
+  return ['localhost', '127.0.0.1', '[::1]', '::1'].includes(hostname);
+}
+
+function isLocalApiTarget() {
+  try {
+    const target = API_BASE
+      ? new URL(API_BASE, window.location.origin)
+      : new URL(window.location.origin);
+    return isLoopbackHost(target.hostname);
+  } catch {
+    return false;
+  }
+}
+
+const LOCAL_API_TARGET = isLocalApiTarget();
 
 let appToken = '';
 let sessionPromise = null;
 
 async function ensureAppToken() {
+  if (!LOCAL_API_TARGET) {
+    throw new Error('The council only supports a local backend. Remove VITE_API_BASE or point it to localhost.');
+  }
+
   if (appToken) {
     return appToken;
   }
@@ -87,10 +107,10 @@ function dispatchSseBlock(block, onEvent) {
  * Build headers for every request, injecting stored API keys so the backend
  * can use the caller's own credentials instead of the server's env vars.
  */
-function authHeaders(token, extra = {}) {
+function authHeaders(token, extra = {}, includeApiKey = false) {
   const headers = { 'Content-Type': 'application/json', 'X-App-Token': token, ...extra };
-  const apiKey = localStorage.getItem('llm_council_openrouter_key');
-  if (apiKey) {
+  const apiKey = sessionStorage.getItem('llm_council_openrouter_key');
+  if (includeApiKey && apiKey) {
     headers['X-API-Key'] = apiKey;
   }
   return headers;
@@ -189,7 +209,7 @@ export const api = {
       `/api/conversations/${conversationId}/message/stream`,
       {
         method: 'POST',
-        headers: authHeaders(await ensureAppToken()),
+        headers: authHeaders(await ensureAppToken(), {}, true),
         body: JSON.stringify({ content, image: image || null }),
       },
     );

@@ -77,7 +77,7 @@ export default function SetupModal({ onClose }) {
               onChange={(e) => { setApiKey(e.target.value); setError(''); }}
               placeholder={apiKeySet ? '••••••••••• (set — leave blank to keep)' : 'sk-or-v1-...'}
               autoFocus
-              autoComplete="off"
+              autoComplete="current-password"
             />
             <button
               type="button"
