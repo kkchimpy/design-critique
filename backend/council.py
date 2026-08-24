@@ -434,7 +434,7 @@ async def stage0_ground_truth(
     Returns a dict with keys: screen_type, user_goal, selected_frameworks,
     evidence_catalog. Falls back to an empty dict if the model call fails.
     """
-    principles = _compact_principles(load_design_principles(), stage0_result)
+    principles = load_design_principles()
     goal = user_query.strip() or "Infer from the screen."
 
     prompt = f"""You are preparing the ground truth for a design council critique. Look carefully at this design image.
