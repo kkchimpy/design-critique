@@ -446,8 +446,10 @@ async def send_message_stream(
                 except Exception as save_error:
                     print(f"Failed to persist council error: {save_error}")
 
-            print(f"Council request failed: {type(e).__name__}")
-            yield f"data: {json.dumps({'type': 'error', 'message': 'The council stopped before completing this request.'})}\n\n"
+            import traceback
+            traceback.print_exc()
+            print(f"Council request failed: {type(e).__name__}: {e}")
+            yield f"data: {json.dumps({'type': 'error', 'message': f'Council error: {type(e).__name__} - {e}'})}\n\n"
         finally:
             if slot_acquired:
                 _WORKFLOW_SLOTS.release()
