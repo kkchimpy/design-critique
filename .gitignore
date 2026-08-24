@@ -10,9 +10,10 @@ wheels/
 .venv
 
 # Keys and secrets
+# Note: this app takes the OpenRouter key from the browser UI, not a backend
+# .env file. These entries only guard against anyone adding one locally.
 .env
 .env.*
-!.env.example
 frontend/.env
 frontend/.env.local
 
@@ -28,6 +29,7 @@ data/conversations/*
 
 # OS metadata
 .DS_Store
+**/.DS_Store
 
 # Frontend
 frontend/node_modules/

@@ -9,11 +9,27 @@ from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
+import base64
+import binascii
+import re
 
 from . import storage
-from .openrouter import close_client
+from .openrouter import close_client, warn_if_models_unavailable
 from .export import render_verdict_html
-from .config import COUNCIL_MODELS, _request_api_key
+from .markdown_renderer import (
+    render_conversation,
+    render_response,
+    render_stage1_results,
+    render_stage2_results,
+)
+from .config import (
+    COUNCIL_MODELS,
+    MAX_API_KEY_LENGTH,
+    MAX_CONTENT_LENGTH,
+    MAX_IMAGE_BYTES,
+    MAX_REQUEST_BYTES,
+    _request_api_key,
+)
 from .local_auth import get_app_token, rotate_app_token, token_matches
 from .council import (
     generate_conversation_title,
@@ -22,7 +38,6 @@ from .council import (
     stage2_collect_rankings,
     stage3_synthesize_final,
     calculate_aggregate_rankings,
-    run_full_design_council,
     stage1_collect_design_feedback,
     stage2_collect_design_rankings,
     stage3_synthesize_design_verdict,
@@ -30,11 +45,17 @@ from .council import (
     stage0_ground_truth,
 )
 
+_WORKFLOW_SLOTS = asyncio.Semaphore(2)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage shared resources for the app's lifetime."""
     rotate_app_token()
+    # Best-effort check so a stale model ID in config.py surfaces as a clear
+    # startup warning instead of a confusing "all council members failed"
+    # error after a user's first review attempt.
+    asyncio.create_task(warn_if_models_unavailable())
     yield
     # Close the shared HTTP client and its connection pool on shutdown.
     await close_client()
@@ -43,13 +64,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="LLM Council API", lifespan=lifespan)
 
 # 10 MB source images plus JSON/data-URL overhead.
-MAX_REQUEST_BYTES = 12 * 1024 * 1024
-_ALLOWED_IMAGE_PREFIXES = (
-    "data:image/png;",
-    "data:image/jpeg;",
-    "data:image/jpg;",
-    "data:image/webp;",
-)
+_DATA_URL_RE = re.compile(r"^data:(image/(?:png|jpeg|webp));base64,([A-Za-z0-9+/]+={0,2})$")
 
 _LOCAL_ORIGINS = [
     "http://localhost:5173",
@@ -87,6 +102,15 @@ async def limit_request_body(request: Request, call_next):
                 return JSONResponse({"detail": "Request too large."}, status_code=413)
         except ValueError:
             return JSONResponse({"detail": "Invalid content length."}, status_code=400)
+    # Enforce the limit while reading, including requests without a
+    # Content-Length header. FastAPI can still parse this cached body.
+    if request.method in {"POST", "PUT", "PATCH"}:
+        body = bytearray()
+        async for chunk in request.stream():
+            body.extend(chunk)
+            if len(body) > MAX_REQUEST_BYTES:
+                return JSONResponse({"detail": "Request too large."}, status_code=413)
+        request._body = bytes(body)
     return await call_next(request)
 
 
@@ -102,7 +126,7 @@ class SendMessageRequest(BaseModel):
     mode instead of the regular Q&A flow. The council models are configured in
     ``backend/config.py``.
     """
-    content: str = ""
+    content: str = Field(default="", max_length=MAX_CONTENT_LENGTH)
     image: Optional[str] = Field(default=None, max_length=MAX_REQUEST_BYTES)
 
     @field_validator("image")
@@ -110,8 +134,23 @@ class SendMessageRequest(BaseModel):
     def image_must_be_data_url(cls, value: Optional[str]) -> Optional[str]:
         if not value:
             return None
-        if not value.startswith(_ALLOWED_IMAGE_PREFIXES):
+        match = _DATA_URL_RE.fullmatch(value)
+        if not match:
             raise ValueError("image must be a PNG, JPEG, or WebP data URL")
+        mime, encoded = match.groups()
+        try:
+            decoded = base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError, binascii.Error):
+            raise ValueError("image data is not valid base64")
+        if len(decoded) > MAX_IMAGE_BYTES:
+            raise ValueError("image exceeds the 10 MB limit")
+        signatures = {
+            "image/png": decoded.startswith(b"\x89PNG\r\n\x1a\n"),
+            "image/jpeg": decoded.startswith(b"\xff\xd8\xff"),
+            "image/webp": len(decoded) >= 12 and decoded[:4] == b"RIFF" and decoded[8:12] == b"WEBP",
+        }
+        if not signatures.get(mime, False):
+            raise ValueError("image data does not match its declared type")
         return value
 
 
@@ -146,7 +185,8 @@ async def health():
 async def local_session(request: Request):
     """Issue the in-memory token the local UI must send on later /api calls."""
     host = (request.client.host if request.client else "") or ""
-    if host not in {"127.0.0.1", "::1", "localhost"}:
+    origin = request.headers.get("origin")
+    if host not in {"127.0.0.1", "::1", "localhost"} or (origin and origin not in _LOCAL_ORIGINS):
         raise HTTPException(status_code=403, detail="Local session is only available on this computer.")
     return {"token": get_app_token()}
 
@@ -171,7 +211,7 @@ async def get_conversation(conversation_id: str):
     conversation = storage.get_conversation(conversation_id)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+    return render_conversation(conversation)
 
 
 @app.delete("/api/conversations/{conversation_id}", status_code=204)
@@ -230,12 +270,15 @@ async def send_message_stream(
     Send a message and stream the 3-stage council process.
     Returns Server-Sent Events as each stage completes.
     """
-    if x_api_key:
-        _request_api_key.set(x_api_key)
     # Check if conversation exists
     conversation = storage.get_conversation(conversation_id)
     if conversation is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    if x_api_key and len(x_api_key) > MAX_API_KEY_LENGTH:
+        raise HTTPException(status_code=400, detail="API key is too long.")
+    if not x_api_key or not x_api_key.strip():
+        raise HTTPException(status_code=400, detail="An OpenRouter API key is required.")
 
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
@@ -249,6 +292,11 @@ async def send_message_stream(
     }
 
     async def event_generator():
+        # StreamingResponse may run this generator after the request context is
+        # gone, so re-bind the OpenRouter key here instead of in the endpoint.
+        if x_api_key:
+            _request_api_key.set(x_api_key.strip())
+
         stage1_results = []
         stage2_results = []
         stage3_result = {
@@ -258,7 +306,10 @@ async def send_message_stream(
         annotations = None
         title_task = None
         assistant_saved = False
+        slot_acquired = False
         try:
+            await asyncio.wait_for(_WORKFLOW_SLOTS.acquire(), timeout=5.0)
+            slot_acquired = True
             # Add user message
             storage.add_user_message(conversation_id, request.content, image=request.image)
 
@@ -287,12 +338,20 @@ async def send_message_stream(
                 )
             else:
                 stage1_results = await stage1_collect_responses(request.content, models=council_models)
-            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
+            rendered_stage1_results = render_stage1_results(stage1_results)
+            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': rendered_stage1_results})}\n\n"
 
             if not stage1_results:
+                # x_api_key is already validated as non-empty before the stream
+                # starts, so a failure here always means every council member
+                # rejected the request (bad model IDs, no credits, etc.).
                 stage3_result = {
                     "model": "error",
-                    "response": "All configured council members failed to respond. Check your OpenRouter key and model configuration.",
+                    "response": (
+                        "All configured council members failed to respond. Check that "
+                        "the key has credits and that the model IDs in backend/config.py "
+                        "still exist on OpenRouter."
+                    ),
                 }
                 yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
                 storage.add_assistant_message(
@@ -320,7 +379,8 @@ async def send_message_stream(
                 "label_to_model": label_to_model,
                 "aggregate_rankings": aggregate_rankings,
             })
-            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': metadata})}\n\n"
+            rendered_stage2_results = render_stage2_results(stage2_results, label_to_model)
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': rendered_stage2_results, 'metadata': metadata})}\n\n"
 
             # Stage 3: Synthesize final answer / verdict
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
@@ -328,7 +388,8 @@ async def send_message_stream(
                 stage3_result = await stage3_synthesize_design_verdict(request.image, request.content, stage1_results, stage2_results)
             else:
                 stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
-            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
+            rendered_stage3_result = render_response(stage3_result, sectioned=design_mode)
+            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': rendered_stage3_result})}\n\n"
 
             # Design mode: localize the verdict onto the image as clickable pins.
             if design_mode:
@@ -360,6 +421,8 @@ async def send_message_stream(
             # Send completion event
             yield f"data: {json.dumps({'type': 'complete', 'metadata': metadata})}\n\n"
 
+        except asyncio.TimeoutError:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Another review is already running. Please try again shortly.'})}\n\n"
         except Exception as e:
             if title_task and not title_task.done():
                 title_task.cancel()
@@ -385,6 +448,9 @@ async def send_message_stream(
 
             print(f"Council request failed: {type(e).__name__}")
             yield f"data: {json.dumps({'type': 'error', 'message': 'The council stopped before completing this request.'})}\n\n"
+        finally:
+            if slot_acquired:
+                _WORKFLOW_SLOTS.release()
 
     return StreamingResponse(
         event_generator(),

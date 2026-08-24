@@ -1,9 +1,12 @@
 import tempfile
 import unittest
+from pydantic import ValidationError
 
 from backend import storage
 from backend.council import calculate_aggregate_rankings, parse_ranking_from_text
 from backend.export import render_verdict_html
+from backend.main import SendMessageRequest
+from backend.markdown_renderer import render_markdown, render_ranking
 
 
 class PublicFlowTests(unittest.TestCase):
@@ -76,6 +79,46 @@ class PublicFlowTests(unittest.TestCase):
         self.assertFalse(token_matches("nope"))
         self.assertFalse(token_matches(None))
         self.assertFalse(token_matches(token[:-1] + ("a" if token[-1] != "a" else "b")))
+
+    def test_message_validation_rejects_untrusted_image_payloads(self):
+        with self.assertRaises(ValidationError):
+            SendMessageRequest(image="data:image/png;base64,AAAA")
+
+        valid_png = "data:image/png;base64,iVBORw0KGgo="
+        request = SendMessageRequest(content="hello", image=valid_png)
+        self.assertEqual(request.image, valid_png)
+
+    def test_storage_list_skips_corrupt_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            original_data_dir = storage.DATA_DIR
+            storage.DATA_DIR = directory
+            try:
+                with open(f"{directory}/broken.json", "w", encoding="utf-8") as file:
+                    file.write("not json")
+                self.assertEqual(storage.list_conversations(), [])
+            finally:
+                storage.DATA_DIR = original_data_dir
+
+    def test_canonical_markdown_renderer_supports_shared_contract(self):
+        rendered = render_markdown(
+            "## Scorecard\n\n| Area | Score |\n| --- | --- |\n| Accessibility | **4** |\n\n```js\nalert(1)\n```\n\n[Safe](https://example.com) [Unsafe](javascript:alert(1))",
+            sectioned=True,
+        )
+        self.assertIn('class="md-section md-section--scorecard"', rendered)
+        self.assertIn("<table>", rendered)
+        self.assertIn("<pre><code", rendered)
+        self.assertIn('class="p-ref"', rendered)
+        self.assertIn('href="https://example.com"', rendered)
+        self.assertNotIn("javascript:", rendered)
+        self.assertNotIn("<script", rendered)
+
+    def test_ranking_renderer_deanonymizes_before_rendering(self):
+        rendered = render_ranking(
+            {"model": "reviewer", "ranking": "1. Response A"},
+            {"Response A": "openai/gpt"},
+        )
+        self.assertIn("openai/gpt", rendered["ranking_html"])
+        self.assertNotIn("Response A", rendered["ranking_html"])
 
 
 if __name__ == "__main__":

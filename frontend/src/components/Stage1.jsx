@@ -31,7 +31,7 @@ export default function Stage1({ responses }) {
 
       <div className="tab-content">
         <div className="response-text markdown-content">
-          <MarkdownRenderer>{activeResponse?.response || ''}</MarkdownRenderer>
+          <MarkdownRenderer html={activeResponse?.response_html} fallback={activeResponse?.response || ''} />
         </div>
       </div>
     </div>

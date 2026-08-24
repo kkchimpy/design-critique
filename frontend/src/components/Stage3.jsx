@@ -18,7 +18,7 @@ export default function Stage3({ finalResponse, isDesign = false, conversationId
           Chairman: {displayModelName(finalResponse.model, 'Council')}
         </div>
         <div className="final-text markdown-content">
-          <MarkdownRenderer>{finalResponse.response || ''}</MarkdownRenderer>
+          <MarkdownRenderer html={finalResponse.response_html} fallback={finalResponse.response || ''} />
         </div>
 
         {isDesign && (

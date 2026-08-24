@@ -15,16 +15,16 @@ A local-first multi-model design review tool inspired by [Karpathy's LLM Council
 This is intended to run on your own computer, not as a hosted shared service.
 
 - You enter your own OpenRouter key in the browser.
-- The key is kept in browser `localStorage` and sent to the local backend as `X-API-Key`.
+- The key is kept in browser `sessionStorage` and sent only to the local review endpoint as `X-API-Key`.
 - The backend never writes the key to `.env` or to conversation files.
 - Uploaded screenshots and model responses are sent to OpenRouter according to your selected models' policies.
 - Conversations are stored locally as JSON files in `data/conversations/` and are ignored by Git. No duplicate Markdown answer files are generated.
-- The downloaded HTML verdict contains the screenshot and critique so it can be shared without this app or an API key.
+- The downloaded HTML verdict contains the screenshot and critique so it can be shared without this app or an API key. It uses system fonts and does not contact a font CDN.
 
 This project is meant to be cloned and run on your own computer. Do not deploy it as a public website.
 
 - The API listens on `127.0.0.1` only, so other devices on your network cannot reach it.
-- The local UI fetches a short-lived process token and sends it as `X-App-Token`. Other websites cannot use that to reset or read your reviews.
+- The local UI fetches a short-lived process token and sends it as `X-App-Token`. This reduces ordinary browser CSRF risk, but does not protect against untrusted local software.
 - Conversation files stay in `data/conversations/` and are gitignored. Do not commit that folder.
 - Your OpenRouter key stays in the browser; never put it in the repo or a `.env` file.
 - Uploaded screenshots are sent to OpenRouter when you run a review. Treat exported HTML files as confidential if the design is.
@@ -38,11 +38,13 @@ This project is meant to be cloned and run on your own computer. Do not deploy i
 - Node.js 18+
 - An OpenRouter account with credits or an appropriate spending limit
 
-Run:
+**macOS / Linux:**
 
 ```bash
 ./start.sh
 ```
+
+**Windows:** `start.sh` is a bash script. Run it from Git Bash or WSL, or use the manual steps below in PowerShell/cmd.
 
 Then open [http://localhost:5173](http://localhost:5173), paste an OpenRouter key, and start a review. No server `.env` file is required.
 
@@ -76,7 +78,9 @@ COUNCIL_MODELS = [
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 ```
 
-For image critiques, choose models that support image input. OpenRouter model IDs and capabilities change over time, so check the model documentation before replacing these defaults.
+For image critiques, choose models that support image input. OpenRouter model IDs and capabilities change over time, so check the model documentation before replacing these defaults. On startup, the backend checks the configured model IDs against OpenRouter's public model list and prints a warning to the terminal if any are no longer available — watch the terminal output the first time you run `./start.sh`.
+
+Only one design or text review runs at a time per backend process; a second concurrent request waits briefly and then returns a "try again shortly" message instead of queuing indefinitely.
 
 ## Image handling
 
@@ -117,3 +121,7 @@ uv run python -m compileall -q backend
 ```bash
 uv run python -m unittest discover -s tests -v
 ```
+
+## License
+
+[MIT](LICENSE). This project is inspired by [Karpathy's LLM Council](https://github.com/karpathy/llm-council), which is provided as-is without an explicit license.

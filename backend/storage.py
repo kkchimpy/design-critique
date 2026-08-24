@@ -3,6 +3,8 @@
 import json
 import os
 import shutil
+import tempfile
+import threading
 import uuid
 from datetime import datetime
 from typing import List, Dict, Any, Optional
@@ -11,6 +13,7 @@ from .config import DATA_DIR
 
 
 DEFAULT_CONVERSATION_TITLE = "New Conversation"
+_STORAGE_LOCK = threading.RLock()
 
 
 def _ensure_dir(path: str):
@@ -81,8 +84,7 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
     path = get_conversation_path(conversation_id)
     if path is None:
         raise ValueError("Invalid conversation id")
-    with open(path, 'w') as f:
-        json.dump(conversation, f, indent=2)
+    _atomic_write(path, conversation)
 
     return conversation
 
@@ -101,8 +103,28 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     if path is None or not os.path.exists(path):
         return None
 
-    with open(path, 'r') as f:
-        return json.load(f)
+    try:
+        with _STORAGE_LOCK, open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _atomic_write(path: str, conversation: Dict[str, Any]):
+    """Write a conversation without exposing a partially-written JSON file."""
+    directory = os.path.dirname(path)
+    with _STORAGE_LOCK:
+        fd, temporary_path = tempfile.mkstemp(prefix='.conversation-', suffix='.tmp', dir=directory)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(conversation, f, indent=2, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+            os.chmod(temporary_path, 0o600)
+            os.replace(temporary_path, path)
+        finally:
+            if os.path.exists(temporary_path):
+                os.unlink(temporary_path)
 
 
 def save_conversation(conversation: Dict[str, Any]):
@@ -117,8 +139,7 @@ def save_conversation(conversation: Dict[str, Any]):
     path = get_conversation_path(conversation['id'])
     if path is None:
         raise ValueError("Invalid conversation id")
-    with open(path, 'w') as f:
-        json.dump(conversation, f, indent=2)
+    _atomic_write(path, conversation)
 
 
 def list_conversations() -> List[Dict[str, Any]]:
@@ -134,16 +155,23 @@ def list_conversations() -> List[Dict[str, Any]]:
     for filename in os.listdir(DATA_DIR):
         if filename.endswith('.json'):
             path = os.path.join(DATA_DIR, filename)
-            with open(path, 'r') as f:
-                data = json.load(f)
-                messages = data.get("messages", [])
-                conversations.append({
-                    "id": data["id"],
-                    "created_at": data["created_at"],
-                    "title": data.get("title", DEFAULT_CONVERSATION_TITLE),
-                    "message_count": len(messages),
-                    "mode": _conversation_mode(messages),
-                })
+            try:
+                with _STORAGE_LOCK, open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except (OSError, json.JSONDecodeError, KeyError, TypeError):
+                continue
+            if not isinstance(data, dict) or not data.get("id") or not data.get("created_at"):
+                continue
+            messages = data.get("messages", [])
+            if not isinstance(messages, list):
+                messages = []
+            conversations.append({
+                "id": data["id"],
+                "created_at": data["created_at"],
+                "title": data.get("title", DEFAULT_CONVERSATION_TITLE),
+                "message_count": len(messages),
+                "mode": _conversation_mode(messages),
+            })
 
     # Sort by creation time, newest first
     conversations.sort(key=lambda x: x["created_at"], reverse=True)
@@ -160,18 +188,18 @@ def add_user_message(conversation_id: str, content: str, image: Optional[str] = 
         content: User message content
         image: Optional image data URL (design critique mode)
     """
-    conversation = _load_conversation_or_raise(conversation_id)
+    with _STORAGE_LOCK:
+        conversation = _load_conversation_or_raise(conversation_id)
 
-    message: Dict[str, Any] = {
-        "role": "user",
-        "content": content
-    }
-    if image:
-        message["image"] = image
+        message: Dict[str, Any] = {
+            "role": "user",
+            "content": content
+        }
+        if image:
+            message["image"] = image
 
-    conversation["messages"].append(message)
-
-    save_conversation(conversation)
+        conversation.setdefault("messages", []).append(message)
+        save_conversation(conversation)
 
 
 def add_assistant_message(
@@ -194,23 +222,23 @@ def add_assistant_message(
         mode: "text" (default Q&A) or "design" (image critique)
         annotations: Optional list of design annotation pins (design mode only)
     """
-    conversation = _load_conversation_or_raise(conversation_id)
+    with _STORAGE_LOCK:
+        conversation = _load_conversation_or_raise(conversation_id)
 
-    message: Dict[str, Any] = {
-        "role": "assistant",
-        "stage1": stage1,
-        "stage2": stage2,
-        "stage3": stage3,
-        "mode": mode
-    }
-    if annotations is not None:
-        message["annotations"] = annotations
-    if metadata is not None:
-        message["metadata"] = metadata
+        message: Dict[str, Any] = {
+            "role": "assistant",
+            "stage1": stage1,
+            "stage2": stage2,
+            "stage3": stage3,
+            "mode": mode
+        }
+        if annotations is not None:
+            message["annotations"] = annotations
+        if metadata is not None:
+            message["metadata"] = metadata
 
-    conversation["messages"].append(message)
-
-    save_conversation(conversation)
+        conversation.setdefault("messages", []).append(message)
+        save_conversation(conversation)
 
 
 def delete_conversation(conversation_id: str) -> bool:
@@ -221,10 +249,13 @@ def delete_conversation(conversation_id: str) -> bool:
         True if deleted, False if not found.
     """
     path = get_conversation_path(conversation_id)
-    if path is None or not os.path.exists(path):
+    if path is None:
         return False
-    os.remove(path)
-    return True
+    with _STORAGE_LOCK:
+        if not os.path.exists(path):
+            return False
+        os.remove(path)
+        return True
 
 
 def update_conversation_title(conversation_id: str, title: str):
@@ -235,10 +266,10 @@ def update_conversation_title(conversation_id: str, title: str):
         conversation_id: Conversation identifier
         title: New title for the conversation
     """
-    conversation = _load_conversation_or_raise(conversation_id)
-
-    conversation["title"] = title
-    save_conversation(conversation)
+    with _STORAGE_LOCK:
+        conversation = _load_conversation_or_raise(conversation_id)
+        conversation["title"] = str(title).strip()[:100] or DEFAULT_CONVERSATION_TITLE
+        save_conversation(conversation)
 
 
 def get_latest_design_verdict(conversation_id: str) -> Optional[Dict[str, Any]]:
@@ -295,8 +326,9 @@ def reset_all_data():
     """Remove stored conversations and generated artifacts, then recreate folders."""
     targets = [DATA_DIR]
 
-    for target in targets:
-        if os.path.exists(target):
-            shutil.rmtree(target)
+    with _STORAGE_LOCK:
+        for target in targets:
+            if os.path.exists(target):
+                shutil.rmtree(target)
 
-    ensure_data_dir()
+        ensure_data_dir()

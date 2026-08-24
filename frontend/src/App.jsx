@@ -27,6 +27,7 @@ function normalizeStageResponse(payload, fallbackModel = 'Council') {
     ...payload,
     model: normalizeModelName(payload.model, fallbackModel),
     response: typeof payload.response === 'string' ? payload.response : '',
+    response_html: typeof payload.response_html === 'string' ? payload.response_html : '',
   };
 }
 
@@ -44,6 +45,7 @@ function normalizeAssistantMessage(message) {
             return {
               model: `Model ${index + 1}`,
               ranking: entry,
+              ranking_html: '',
               parsed_ranking: [],
             };
           }
@@ -56,6 +58,7 @@ function normalizeAssistantMessage(message) {
             ...entry,
             model: normalizeModelName(entry.model, `Model ${index + 1}`),
             ranking: typeof entry.ranking === 'string' ? entry.ranking : '',
+            ranking_html: typeof entry.ranking_html === 'string' ? entry.ranking_html : '',
             parsed_ranking: Array.isArray(entry.parsed_ranking)
               ? entry.parsed_ranking.filter((label) => typeof label === 'string')
               : [],

@@ -8,12 +8,12 @@ self-contained with inline CSS and an embedded image.
 import html as html_lib
 import json
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-import bleach
-import markdown as md
+from .markdown_renderer import render_markdown
 
 _TEMPLATE_PATH = (
     Path(__file__).parent / "templates/design-verdict.html"
@@ -95,27 +95,15 @@ def render_verdict_html(
     Returns:
         A complete, self-contained HTML document as a string.
     """
-    rendered_verdict = md.markdown(
-        verdict_markdown or "",
-        extensions=["extra", "tables", "fenced_code", "sane_lists"],
-    )
-    verdict_html = bleach.clean(
-        rendered_verdict,
-        tags=[
-            "a", "blockquote", "code", "em", "h1", "h2", "h3", "h4",
-            "li", "ol", "p", "pre", "strong", "table", "tbody", "td",
-            "th", "thead", "tr", "ul",
-        ],
-        attributes={"a": ["href", "title"]},
-        protocols=["http", "https", "mailto"],
-        strip=True,
-    )
+    verdict_html = render_markdown(verdict_markdown, sectioned=True)
 
     safe_title = html_lib.escape(title or "Design Critique")
     primary_image = html_lib.escape(
         image_data_url or "",
         quote=True,
     )
+    if primary_image and not primary_image.startswith(("data:image/png;base64,", "data:image/jpeg;base64,", "data:image/webp;base64,")):
+        primary_image = ""
     pins = annotations or []
     pins_json = _safe_script_json(pins)
 
@@ -159,16 +147,18 @@ def render_verdict_html(
     generated = datetime.utcnow().strftime("%B %d, %Y")
 
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
-    return (
-        template
-        .replace("__TITLE__",        safe_title)
-        .replace("__IMG_SRC__",      primary_image)
-        .replace("__PINS_HTML__",    pins_html)
-        .replace("__PINS_JSON__",    pins_json)
-        .replace("__VERDICT_JSON__", _safe_script_json(verdict_html))
-        .replace("__HINT__",         hint_str)
-        .replace("__CONTEXT_HTML__", context_html)
-        .replace("__FOOTER_CHIPS__", footer_chips_html)
-        .replace("__DATELINE__",     f"Generated {generated}")
-    )
+    replacements = {
+        "__TITLE__": safe_title,
+        "__IMG_SRC__": primary_image,
+        "__PINS_HTML__": pins_html,
+        "__PINS_JSON__": pins_json,
+        "__VERDICT_JSON__": _safe_script_json(verdict_html),
+        "__HINT__": hint_str,
+        "__CONTEXT_HTML__": context_html,
+        "__FOOTER_CHIPS__": footer_chips_html,
+        "__DATELINE__": f"Generated {generated}",
+    }
+    # Replace only template tokens. A value containing another token-like
+    # string must remain literal model/user content.
+    return re.sub(r"__([A-Z_]+)__", lambda match: replacements.get(match.group(0), match.group(0)), template)
 

@@ -3,10 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; connect-src 'none'; font-src 'none'" />
 <title>__TITLE__ — Design Council Verdict</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
 *,*::before,*::after{box-sizing:border-box;}
 body{margin:0;position:relative;min-height:100vh;background:#fff;color:#3a3a3a;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.55;}
@@ -262,41 +260,11 @@ footer p{margin:6px 0 0;font-size:13px;color:var(--muted);}
       showingVerdict = true;
       closePanel();
       verdictBody.innerHTML = VERDICT_HTML;
-      wrapSections(verdictBody);
       verdictWrap.classList.add('is-open');
       wrap.style.display = 'none';
       if (btnV) btnV.textContent = 'Hide verdict';
-      highlightPrinciples(verdictBody);
     }
   };
-
-  function sectionSlug(text) {
-    var lower = String(text || '').toLowerCase();
-    if (lower.indexOf('next step') !== -1) return 'next-steps';
-    if (lower.indexOf('strength') !== -1) return 'strengths';
-    if (lower.indexOf('scorecard') !== -1) return 'scorecard';
-    if (lower.indexOf('issue') !== -1) return 'issues';
-    if (lower.indexOf('verdict') !== -1) return 'verdict';
-    return (lower.trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || 'section';
-  }
-
-  // Wrap each <h2>-delimited block into a <section> so it can be colour-coded
-  // (mirrors the in-app MarkdownRenderer sectioned mode).
-  function wrapSections(root) {
-    var nodes = Array.prototype.slice.call(root.childNodes);
-    var firstH2 = nodes.findIndex(function (n) { return n.nodeName === 'H2'; });
-    if (firstH2 === -1) return;
-    var sections = [], current = null;
-    nodes.forEach(function (node) {
-      if (node.nodeName === 'H2') {
-        current = document.createElement('section');
-        current.className = 'md-section md-section--' + sectionSlug(node.textContent);
-        sections.push(current);
-      }
-      if (current) current.appendChild(node);
-    });
-    sections.forEach(function (s) { root.appendChild(s); });
-  }
 
   window.closePanel = function () {
     popover.classList.remove('is-open');
@@ -313,58 +281,16 @@ footer p{margin:6px 0 0;font-size:13px;color:var(--muted);}
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  var RULES = [{"label":"Visual Hierarchy & Gestalt","bg":"#b8a4ed","fg":"#0a0a0a","kw":["visual hierarchy","gestalt","grouping","proximity","similarity"],"link":"https://www.nngroup.com/articles/gestalt-similarity/"},{"label":"Learnability & Discovery","bg":"#ffb084","fg":"#0a0a0a","kw":["learnab","discoverabil","affordance","heuristic","mental model","consistency"],"link":"https://www.nngroup.com/articles/ten-usability-heuristics/"},{"label":"Error Prevention & Feedback","bg":"#ff4d8b","fg":"#ffffff","kw":["error","feedback","recovery","undo","redo","prevention","validation","confirmation"],"link":"https://www.nngroup.com/articles/ten-usability-heuristics/"},{"label":"Accessibility & WCAG","bg":"#1a3a3a","fg":"#ffffff","kw":["accessib","wcag","contrast","aria","screen reader","colour blind","color blind","keyboard","touch target"],"link":"https://www.w3.org/TR/WCAG21/"},{"label":"Behaviour & Motivation","bg":"#e8b94a","fg":"#0a0a0a","kw":["fogg","behaviour","behavior","motivation","ability","prompt","trigger","call to action"],"link":"https://behaviormodel.org/"},{"label":"Content & Microcopy","bg":"#a4d4c5","fg":"#0a0a0a","kw":["microcopy","voice","tone","plain language","wording"],"link":"https://www.nngroup.com/articles/voice-tone-content-style-guides/"},{"label":"Cognitive Load & Friction","bg":"#ff6b5a","fg":"#ffffff","kw":["cognitive load","cognitive","dark pattern","overload","complexity","overwhelm"],"link":"https://www.nngroup.com/articles/minimize-cognitive-load/"}];
-
-  function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
-
-  function findMatches(text) {
-    var all = [];
-    RULES.forEach(function (r) {
-      var pat = r.kw.map(escRe).join('|');
-      var re  = new RegExp('(?:' + pat + ')','gi');
-      var m;
-      while ((m = re.exec(text)) !== null) all.push({index:m.index,end:m.index+m[0].length,text:m[0],rule:r});
-    });
-    all.sort(function (a,b) { return a.index - b.index; });
-    var out = [], lastEnd = 0;
-    all.forEach(function (m) { if (m.index >= lastEnd) { out.push(m); lastEnd = m.end; } });
-    return out;
-  }
-
-  function highlightPrinciples(root) {
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
-    var nodes = [], node;
-    while ((node = walker.nextNode())) nodes.push(node);
-    nodes.forEach(function (textNode) {
-      var text = textNode.textContent;
-      if (!text.trim()) return;
-      var anc = textNode.parentNode;
-      while (anc && anc !== root) { if (anc.classList && anc.classList.contains('p-ref')) return; anc = anc.parentNode; }
-      var matches = findMatches(text);
-      if (!matches.length) return;
-      var frag = document.createDocumentFragment(), pos = 0;
-      matches.forEach(function (m) {
-        if (m.index > pos) frag.appendChild(document.createTextNode(text.slice(pos, m.index)));
-        var span = document.createElement('span');
-        span.className = 'p-ref'; span.textContent = m.text; span._rule = m.rule;
-        span.style.textDecorationLine = 'underline'; span.style.textDecorationStyle = 'dotted';
-        span.style.textDecorationColor = m.rule.bg; span.style.textDecorationThickness = '2px';
-        span.style.textUnderlineOffset = '3px';
-        frag.appendChild(span); pos = m.end;
-      });
-      if (pos < text.length) frag.appendChild(document.createTextNode(text.slice(pos)));
-      textNode.parentNode.replaceChild(frag, textNode);
-    });
-  }
-
   var tip = document.getElementById('p-tip');
   var hideTimer = null;
   function showTip(el) {
     clearTimeout(hideTimer);
-    var r = el._rule;
-    tip.innerHTML = '<span class="p-tip-swatch" style="background:' + r.bg + '"></span>'
-      + '<span class="p-tip-name">' + escHtml(r.label) + '</span>'
-      + '<a class="p-tip-link" href="' + r.link + '" target="_blank" rel="noopener noreferrer">Learn more ↗</a>';
+    var r = {
+      label: el.dataset.principleLabel || 'Design principle',
+      link: el.dataset.principleUrl || '',
+    };
+    tip.innerHTML = '<span class="p-tip-name">' + escHtml(r.label) + '</span>'
+      + (r.link ? '<a class="p-tip-link" href="' + escHtml(r.link) + '" target="_blank" rel="noopener noreferrer">Learn more ↗</a>' : '');
     tip.style.visibility = 'hidden'; tip.style.opacity = '0'; tip.style.display = 'flex';
     requestAnimationFrame(function () {
       var rect = el.getBoundingClientRect(), tw = tip.getBoundingClientRect().width, th = tip.getBoundingClientRect().height;

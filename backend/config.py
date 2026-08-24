@@ -4,7 +4,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from typing import Optional
 
-# Per-request API key: set from the X-API-Key header in each FastAPI endpoint.
+# Per-request API key: set from the X-API-Key header only for LLM requests.
 # ContextVar propagates to child asyncio tasks, so council functions pick it up.
 _request_api_key: ContextVar[Optional[str]] = ContextVar('request_api_key', default=None)
 
@@ -18,18 +18,28 @@ def get_effective_api_key() -> str:
 # choose the models available through the user's OpenRouter account.
 # ---------------------------------------------------------------------------
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "stealth/ox-alpha",
+    "google/gemini-3.7-flash",
+    "x-ai/grok-4.6",
+    "moonshotai/kimi-k3",
 ]
 
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+CHAIRMAN_MODEL = "google/gemini-3.7-flash"
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
+# Resource limits shared by the HTTP, prompt, and OpenRouter layers.
+MAX_CONTENT_LENGTH = 20_000
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_REQUEST_BYTES = 14 * 1024 * 1024
+MAX_API_KEY_LENGTH = 512
+# Design verdicts (scorecard + prioritized issues + strengths + next steps)
+# routinely need more headroom than a plain Q&A answer, so this is generous
+# enough to avoid truncating a critique mid-section.
+MAX_MODEL_OUTPUT_TOKENS = 10_000
+
 # Data directory for conversation storage
-DATA_DIR = "data/conversations"
+DATA_DIR = str(Path(__file__).resolve().parent.parent / "data" / "conversations")
 
 # --- Design critique mode ---
 # Directory holding the design-principles skill library (markdown files).

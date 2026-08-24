@@ -241,7 +241,7 @@ export default function DesignCritique({
 
         <div className="dc-verdict-right" ref={rightColRef}>
           <div className="dc-verdict-body">
-            <MarkdownRenderer sectioned>{verdict || ''}</MarkdownRenderer>
+            <MarkdownRenderer html={verdict?.response_html} fallback={verdict?.response || ''} />
           </div>
 
           <div className="dc-export">

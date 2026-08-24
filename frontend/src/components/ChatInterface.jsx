@@ -81,6 +81,10 @@ export default function ChatInterface({
     if (!file) return;
     setImageError('');
     const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!Number.isFinite(file.size) || file.size <= 0) {
+      setImageError('The selected image is empty.');
+      return;
+    }
     if (!allowed.includes(file.type)) {
       setImageError('Please upload a PNG, JPG, or WebP image.');
       return;
@@ -314,7 +318,7 @@ export default function ChatInterface({
           <DesignCritique
             image={lastUserMsg.image}
             title={conversation.title}
-            verdict={lastAssistantMsg?.stage3?.response || ''}
+            verdict={lastAssistantMsg?.stage3}
             annotations={lastAssistantMsg?.annotations}
             loading={critiqueLoading}
             conversationId={conversation.id}
