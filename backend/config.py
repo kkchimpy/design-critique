@@ -18,10 +18,10 @@ def get_effective_api_key() -> str:
 # choose the models available through the user's OpenRouter account.
 # ---------------------------------------------------------------------------
 COUNCIL_MODELS = [
-    "stealth/ox-alpha",
+    "openai/gpt-5.6-luna",
     "google/gemini-3.7-flash",
-    "x-ai/grok-4.6",
-    "moonshotai/kimi-k3",
+    "meta/muse-spark-1.1",
+    "qwen/qwen3.8-27b",
 ]
 
 CHAIRMAN_MODEL = "google/gemini-3.7-flash"
