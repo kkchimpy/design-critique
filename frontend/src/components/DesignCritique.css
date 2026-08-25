@@ -760,6 +760,10 @@
   margin-top: 12px;
   font-size: 13px;
   color: var(--dc-red);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 100%;
 }
 
 /* ─── Shared button style ─────────────────────────────────────────────────── */
