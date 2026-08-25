@@ -814,11 +814,50 @@ Spread the pins to the real on-screen elements they describe — do not stack th
     return _parse_annotations_json(response.get("content", ""))
 
 
-async def generate_design_title(user_query: str) -> str:
-    """Generate a short title for a design critique conversation."""
+async def generate_design_title(
+    user_query: str,
+    stage0_result: Optional[Dict[str, Any]] = None,
+) -> str:
+    """
+    Generate a smart, descriptive title for a design critique conversation.
+
+    Prioritizes:
+    1. User's explicit prompt or goal if provided.
+    2. Stage 0 ground truth detected screen type / user goal.
+    3. Meaningful fallback based on design review context.
+    """
     base = user_query.strip()
     if base:
+        # Strip generic conversational prefixes
+        cleaned = re.sub(
+            r"^(please\s+)?(review|critique|check|audit|analyze|evaluate|look\s+at)\s+(this\s+|the\s+)?",
+            "",
+            base,
+            flags=re.IGNORECASE,
+        ).strip()
+        if cleaned and len(cleaned) > 3:
+            words = re.findall(r"[\w'-]+", cleaned)
+            title = " ".join(words[:5]).strip(" '-")
+            if title:
+                return title[:50].title()
         return await generate_conversation_title(f"Design review: {base}")
+
+    # If user prompt is empty or just an image, extract from stage0 ground truth if available
+    if stage0_result and isinstance(stage0_result, dict):
+        screen_type = str(stage0_result.get("screen_type") or "").strip()
+        user_goal = str(stage0_result.get("user_goal") or "").strip()
+
+        if screen_type and screen_type.lower() not in ("unknown", "screen", "web page", "app"):
+            clean_type = screen_type.split("/")[0].split("—")[0].strip()
+            words = re.findall(r"[\w'-]+", clean_type)
+            if words:
+                return " ".join(words[:5]).title()[:50]
+
+        if user_goal:
+            words = re.findall(r"[\w'-]+", user_goal)
+            if words:
+                return " ".join(words[:5]).title()[:50]
+
     return "Design Critique"
 
 

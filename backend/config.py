@@ -46,3 +46,9 @@ DATA_DIR = str(Path(__file__).resolve().parent.parent / "data" / "conversations"
 DESIGN_PRINCIPLES_DIR = str(
     Path(__file__).resolve().parent.parent / "skills" / "design-principles"
 )
+
+# --- Supabase Community Gallery Publishing ---
+SUPABASE_URL = "https://ybnptwflkjxqhuzyrdky.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnB0d2Zsa2p4cWh1enlyZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NDU3MTUsImV4cCI6MjEwMzIyMTcxNX0.uhPZf5qua6JzVVreuDH0fAeOaXSE96kCqHbsITId3iE"
+SUPABASE_BUCKET = "verdicts"
+

@@ -385,20 +385,28 @@
 }
 
 .btn-hide-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   height: 36px;
-  background: #C3D4DE;
-  border: none;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--dc-hairline);
   border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--dc-ink);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dc-muted);
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.16s;
+  transition: background 0.16s, border-color 0.16s;
 }
 
-.btn-hide-verdict:hover { background: #B0C6D4; }
+.btn-hide-verdict:hover {
+  background: rgba(133, 82, 246, 0.06);
+  border-color: var(--dc-brand);
+  color: var(--dc-brand);
+}
 
 /* Info button */
 .btn-verdict-info {
@@ -424,6 +432,108 @@
   background: rgba(133, 82, 246, 0.06);
   border-color: var(--dc-brand);
   color: var(--dc-brand);
+}
+
+/* Download HTML button (Secondary style) */
+.btn-download-html {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 36px;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--dc-hairline);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dc-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.16s, border-color 0.16s;
+}
+
+.btn-download-html:hover:not(:disabled) {
+  background: rgba(133, 82, 246, 0.06);
+  border-color: var(--dc-brand);
+  color: var(--dc-brand);
+}
+
+.btn-download-html:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Publish to web button (Primary style) */
+.btn-publish-web {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 36px;
+  justify-content: center;
+  background: var(--dc-brand);
+  border: 1px solid var(--dc-brand);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.16s, border-color 0.16s;
+  box-sizing: border-box;
+}
+
+.btn-publish-web:hover {
+  background: var(--dc-brand-dk);
+  border-color: var(--dc-brand-dk);
+  color: #fff;
+}
+
+.btn-publish-web:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.dc-publish-success-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.btn-publish-web--view {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.btn-publish-web--view:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+.btn-copy-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 32px;
+  background: transparent;
+  border: 1px dashed var(--dc-hairline);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dc-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.16s ease;
+}
+
+.btn-copy-link:hover {
+  border-color: var(--dc-brand);
+  color: var(--dc-brand);
+  background: rgba(133, 82, 246, 0.05);
 }
 
 /* Council info panel */

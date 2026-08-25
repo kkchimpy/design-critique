@@ -8,12 +8,13 @@ from pydantic import ValidationError
 from backend import storage
 from backend.council import (
     calculate_aggregate_rankings,
+    generate_design_title,
     parse_ranking_from_text,
     stage0_ground_truth,
     stage1_collect_design_feedback,
 )
 from backend.export import render_verdict_html
-from backend.main import SendMessageRequest
+from backend.main import SendMessageRequest, slug_from_title
 from backend.markdown_renderer import render_markdown, render_ranking
 
 
@@ -152,6 +153,23 @@ class PublicFlowTests(unittest.TestCase):
         )
         self.assertIn("openai/gpt", rendered["ranking_html"])
         self.assertNotIn("Response A", rendered["ranking_html"])
+
+    def test_smart_design_title_and_slug_generation(self):
+        title_from_prompt = asyncio.run(
+            generate_design_title("Please review this onboarding checkout flow and primary buttons")
+        )
+        self.assertEqual(title_from_prompt, "Onboarding Checkout Flow And Primary")
+
+        title_from_stage0 = asyncio.run(
+            generate_design_title(
+                "",
+                stage0_result={"screen_type": "AI Web App Builder Workspace / Live Canvas"},
+            )
+        )
+        self.assertEqual(title_from_stage0, "Ai Web App Builder Workspace")
+
+        slug = slug_from_title(title_from_stage0, "76278964-daf5-4187-9e48-fba81374328a")
+        self.assertEqual(slug, "ai-web-app-builder-workspace-76278964")
 
 
 if __name__ == "__main__":
