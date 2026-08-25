@@ -12,10 +12,13 @@ import asyncio
 import base64
 import binascii
 import re
+import httpx
 
+from . import config
 from . import storage
 from .openrouter import close_client, warn_if_models_unavailable
 from .export import render_verdict_html
+from .build_gallery import parse_scorecard_metrics
 from .markdown_renderer import (
     render_conversation,
     render_response,
@@ -229,6 +232,15 @@ async def reset_app_data():
     return {"status": "ok"}
 
 
+def slug_from_title(title: str, conv_id: str) -> str:
+    """Generate a clean slug from title and short UUID prefix."""
+    clean = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")
+    short_hash = (conv_id or "")[:8]
+    if clean and clean not in ("design-critique", "new-conversation", "critique"):
+        return f"{clean[:32]}-{short_hash}" if short_hash else clean[:40]
+    return f"design-critique-{short_hash}" if short_hash else "design-critique"
+
+
 @app.post("/api/conversations/{conversation_id}/export")
 async def export_verdict(conversation_id: str):
     """Return the latest design verdict as a standalone downloadable HTML file."""
@@ -252,12 +264,119 @@ async def export_verdict(conversation_id: str):
         annotations=verdict.get("annotations"),
     )
 
-    filename = f"design-critique-{conversation_id[:8]}.html"
+    slug = slug_from_title(verdict.get("title", ""), conversation_id)
+    filename = f"{slug}.html"
     return Response(
         content=html_content,
         media_type="text/html",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@app.post("/api/conversations/{conversation_id}/publish")
+async def publish_verdict(conversation_id: str):
+    """Publish the standalone verdict HTML and its metadata to Supabase."""
+    conversation = storage.get_conversation(conversation_id)
+    if conversation is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    verdict = storage.get_latest_design_verdict(conversation_id)
+    if verdict is None:
+        raise HTTPException(
+            status_code=400,
+            detail="No design critique verdict found in this conversation.",
+        )
+
+    # 1. Render standalone HTML verdict
+    html_content = render_verdict_html(
+        title=verdict["title"],
+        context=verdict["context"],
+        verdict_markdown=verdict["verdict"],
+        image_data_url=verdict.get("image"),
+        council_members=verdict["council"],
+        annotations=verdict.get("annotations"),
+    )
+
+    slug = slug_from_title(verdict.get("title", ""), conversation_id)
+    file_path = f"{slug}.html"
+    public_html_url = f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{file_path}"
+
+    headers = {
+        "apikey": config.SUPABASE_ANON_KEY,
+        "Authorization": f"Bearer {config.SUPABASE_ANON_KEY}",
+    }
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # 2. Upload HTML file to Supabase Storage
+        upload_url = f"{config.SUPABASE_URL}/storage/v1/object/{config.SUPABASE_BUCKET}/{file_path}"
+        upload_resp = await client.post(
+            upload_url,
+            headers={
+                **headers,
+                "Content-Type": "text/html",
+                "x-upsert": "true",
+            },
+            content=html_content.encode("utf-8"),
+        )
+        if upload_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"Storage upload failed ({upload_resp.status_code}): {upload_resp.text}",
+            )
+
+        # 3. Calculate metrics for the gallery database
+        avg_score, _ = parse_scorecard_metrics(verdict.get("verdict", ""))
+        annotations = verdict.get("annotations") or []
+        crit_count = sum(
+            1
+            for a in annotations
+            if str(a.get("severity", "")).strip().lower() in ("1", "crit", "critical")
+        )
+        high_count = sum(
+            1
+            for a in annotations
+            if str(a.get("severity", "")).strip().lower() in ("2", "high")
+        )
+        med_count = sum(
+            1
+            for a in annotations
+            if str(a.get("severity", "")).strip().lower() in ("3", "med", "medium")
+        )
+
+        # 4. Upsert row into verdicts table
+        db_url = f"{config.SUPABASE_URL}/rest/v1/verdicts"
+        db_payload = {
+            "conversation_id": conversation_id,
+            "slug": slug,
+            "title": verdict.get("title") or "Design Critique",
+            "context": verdict.get("context") or "",
+            "image_url": verdict.get("image") or "",
+            "html_url": public_html_url,
+            "council": verdict.get("council") or [],
+            "annotations": annotations,
+            "avg_score": avg_score,
+            "crit_count": crit_count,
+            "high_count": high_count,
+            "med_count": med_count,
+        }
+        db_resp = await client.post(
+            db_url,
+            headers={
+                **headers,
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json=db_payload,
+        )
+        if db_resp.status_code not in (200, 201):
+            # Non-blocking warning/fallback if table insert has schema mismatch but storage succeeded
+            pass
+
+    return {
+        "status": "published",
+        "url": public_html_url,
+        "slug": slug,
+    }
 
 
 @app.post("/api/conversations/{conversation_id}/message/stream")
@@ -314,11 +433,8 @@ async def send_message_stream(
             storage.add_user_message(conversation_id, request.content, image=request.image)
 
             # Start title generation in parallel (don't await yet)
-            if is_first_message:
-                if design_mode:
-                    title_task = asyncio.create_task(generate_design_title(request.content))
-                else:
-                    title_task = asyncio.create_task(generate_conversation_title(request.content))
+            if is_first_message and not design_mode:
+                title_task = asyncio.create_task(generate_conversation_title(request.content))
 
             # Stage 1: Collect responses / critiques
             stage0_result = {}
@@ -327,6 +443,10 @@ async def send_message_stream(
                 stage0_result = await stage0_ground_truth(request.image, request.content)
                 metadata["stage0"] = stage0_result
                 yield f"data: {json.dumps({'type': 'stage0_complete', 'data': stage0_result})}\n\n"
+                if is_first_message:
+                    title_task = asyncio.create_task(
+                        generate_design_title(request.content, stage0_result=stage0_result)
+                    )
 
             yield f"data: {json.dumps({'type': 'stage1_start', 'mode': 'design' if design_mode else 'text'})}\n\n"
             if design_mode:

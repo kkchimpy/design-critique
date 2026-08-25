@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import MarkdownRenderer from './MarkdownRenderer';
 import useExportVerdict from '../hooks/useExportVerdict';
+import usePublishVerdict from '../hooks/usePublishVerdict';
 import { displayModelName } from '../utils/modelNames';
 import './DesignCritique.css';
 
@@ -33,6 +34,24 @@ function InfoIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M7 2v7m0 0l-2.5-2.5M7 9l2.5-2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2.5 10.5v1a.5.5 0 00.5.5h8a.5.5 0 00.5-.5v-1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <circle cx="7" cy="7" r="5.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M1.5 7h11M7 1.5c1.5 1.5 2.2 3.5 2.2 5.5s-.7 4-2.2 5.5c-1.5-1.5-2.2-3.5-2.2-5.5s.7-4 2.2-5.5z" stroke="currentColor" strokeWidth="1.4"/>
+    </svg>
+  );
+}
+
 export default function DesignCritique({
   image,
   verdict,
@@ -47,7 +66,9 @@ export default function DesignCritique({
   const [showVerdict, setShowVerdict]   = useState(false);
   const [showInfo, setShowInfo]         = useState(false);
   const [popoverPos, setPopoverPos]     = useState({ top: 20, left: 20 });
+  const [copiedLink, setCopiedLink]     = useState(false);
   const { exportState, exportResult, exportError, exportVerdict } = useExportVerdict(conversationId);
+  const { publishState, publishUrl, publishError, publishVerdict } = usePublishVerdict(conversationId);
   const pinRefs   = useRef([]);
   const bigImgRef = useRef(null);
   const thumbRef  = useRef(null);
@@ -237,35 +258,67 @@ export default function DesignCritique({
               <p className="dc-info-date">{`Generated ${generatedDate}`}</p>
             </div>
           )}
+
+          <button
+            type="button"
+            className="btn-download-html"
+            onClick={exportVerdict}
+            disabled={exportState === 'loading'}
+          >
+            <DownloadIcon />
+            {exportState === 'loading' ? 'Downloading…' : 'Download HTML'}
+          </button>
+
+          {publishState === 'done' && publishUrl ? (
+            <div className="dc-publish-success-group">
+              <a
+                href={publishUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-publish-web btn-publish-web--view"
+              >
+                <GlobeIcon /> View live verdict ↗
+              </a>
+              <button
+                type="button"
+                className="btn-copy-link"
+                onClick={() => {
+                  navigator.clipboard.writeText(publishUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                }}
+              >
+                {copiedLink ? '✓ Copied link!' : 'Copy public link'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="btn-publish-web"
+              onClick={publishVerdict}
+              disabled={publishState === 'loading'}
+            >
+              <GlobeIcon />
+              {publishState === 'loading' ? 'Publishing to web…' : 'Publish to web'}
+            </button>
+          )}
+
+          {exportState === 'done' && exportResult && (
+            <div className="dc-export-ok">
+              <strong>Downloaded {exportResult}.</strong>
+            </div>
+          )}
+          {exportState === 'error' && (
+            <div className="dc-export-err">{exportError}</div>
+          )}
+          {publishState === 'error' && (
+            <div className="dc-export-err">{publishError}</div>
+          )}
         </div>
 
         <div className="dc-verdict-right" ref={rightColRef}>
           <div className="dc-verdict-body">
             <MarkdownRenderer html={verdict?.response_html} fallback={verdict?.response || ''} />
-          </div>
-
-          <div className="dc-export">
-            <button
-              type="button"
-              className="cha-button cha-button--primary dc-export-btn"
-              onClick={exportVerdict}
-              disabled={exportState === 'loading'}
-            >
-              {exportState === 'loading'
-                ? 'Preparing download…'
-                : exportState === 'done'
-                ? 'Download again'
-                : 'Download HTML verdict'}
-            </button>
-            {exportState === 'done' && exportResult && (
-              <div className="dc-export-ok">
-                <strong>Downloaded {exportResult}.</strong>
-                <div className="dc-export-path">Open the file locally or share it as a standalone review.</div>
-              </div>
-            )}
-            {exportState === 'error' && (
-              <div className="dc-export-err">{exportError}</div>
-            )}
           </div>
         </div>
       </div>

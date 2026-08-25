@@ -27,6 +27,9 @@ data/conversations/*
 # Local agent customization
 .agents/
 
+# Generated static site output
+_site/
+
 # OS metadata
 .DS_Store
 **/.DS_Store

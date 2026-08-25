@@ -271,4 +271,18 @@ export const api = {
     URL.revokeObjectURL(url);
     return filename;
   },
+
+  /**
+   * Publish the latest design verdict to the web gallery on Supabase.
+   */
+  async publishVerdict(conversationId) {
+    const response = await fetchWithSession(
+      `/api/conversations/${conversationId}/publish`,
+      await requestOptions('POST'),
+    );
+    if (!response.ok) {
+      throw new Error(await responseError(response, 'Failed to publish verdict to web'));
+    }
+    return await response.json();
+  },
 };

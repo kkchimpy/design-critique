@@ -34,9 +34,9 @@ def _conversation_mode(messages: List[Dict[str, Any]]) -> str:
     return "text"
 
 
-def ensure_data_dir():
+def ensure_data_dir(storage_dir: Optional[str] = None):
     """Ensure the data directory exists."""
-    _ensure_dir(DATA_DIR)
+    _ensure_dir(storage_dir or DATA_DIR)
 
 
 def _safe_conversation_id(conversation_id: str) -> Optional[str]:
@@ -47,12 +47,12 @@ def _safe_conversation_id(conversation_id: str) -> Optional[str]:
         return None
 
 
-def get_conversation_path(conversation_id: str) -> Optional[str]:
+def get_conversation_path(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[str]:
     """Get the file path for a conversation, or None for an invalid id."""
     safe_id = _safe_conversation_id(conversation_id)
     if safe_id is None:
         return None
-    data_root = Path(DATA_DIR).resolve()
+    data_root = Path(storage_dir or DATA_DIR).resolve()
     path = (data_root / f"{safe_id}.json").resolve()
     try:
         path.relative_to(data_root)
@@ -61,17 +61,18 @@ def get_conversation_path(conversation_id: str) -> Optional[str]:
     return str(path)
 
 
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
+def create_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> Dict[str, Any]:
     """
     Create a new conversation.
 
     Args:
         conversation_id: Unique identifier for the conversation
+        storage_dir: Optional override for data directory
 
     Returns:
         New conversation dict
     """
-    ensure_data_dir()
+    ensure_data_dir(storage_dir)
 
     conversation = {
         "id": conversation_id,
@@ -81,7 +82,7 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
     }
 
     # Save to file
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
     if path is None:
         raise ValueError("Invalid conversation id")
     _atomic_write(path, conversation)
@@ -89,17 +90,18 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
     return conversation
 
 
-def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
+def get_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Load a conversation from storage.
 
     Args:
         conversation_id: Unique identifier for the conversation
+        storage_dir: Optional override for data directory
 
     Returns:
         Conversation dict or None if not found
     """
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
     if path is None or not os.path.exists(path):
         return None
 
@@ -127,34 +129,39 @@ def _atomic_write(path: str, conversation: Dict[str, Any]):
                 os.unlink(temporary_path)
 
 
-def save_conversation(conversation: Dict[str, Any]):
+def save_conversation(conversation: Dict[str, Any], storage_dir: Optional[str] = None):
     """
     Save a conversation to storage.
 
     Args:
         conversation: Conversation dict to save
+        storage_dir: Optional override for data directory
     """
-    ensure_data_dir()
+    ensure_data_dir(storage_dir)
 
-    path = get_conversation_path(conversation['id'])
+    path = get_conversation_path(conversation['id'], storage_dir=storage_dir)
     if path is None:
         raise ValueError("Invalid conversation id")
     _atomic_write(path, conversation)
 
 
-def list_conversations() -> List[Dict[str, Any]]:
+def list_conversations(storage_dir: Optional[str] = None) -> List[Dict[str, Any]]:
     """
     List all conversations (metadata only).
+
+    Args:
+        storage_dir: Optional override for data directory
 
     Returns:
         List of conversation metadata dicts
     """
-    ensure_data_dir()
+    ensure_data_dir(storage_dir)
+    target_dir = storage_dir or DATA_DIR
 
     conversations = []
-    for filename in os.listdir(DATA_DIR):
+    for filename in os.listdir(target_dir):
         if filename.endswith('.json'):
-            path = os.path.join(DATA_DIR, filename)
+            path = os.path.join(target_dir, filename)
             try:
                 with _STORAGE_LOCK, open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -179,7 +186,7 @@ def list_conversations() -> List[Dict[str, Any]]:
     return conversations
 
 
-def add_user_message(conversation_id: str, content: str, image: Optional[str] = None):
+def add_user_message(conversation_id: str, content: str, image: Optional[str] = None, storage_dir: Optional[str] = None):
     """
     Add a user message to a conversation.
 
@@ -187,9 +194,12 @@ def add_user_message(conversation_id: str, content: str, image: Optional[str] = 
         conversation_id: Conversation identifier
         content: User message content
         image: Optional image data URL (design critique mode)
+        storage_dir: Optional override for data directory
     """
     with _STORAGE_LOCK:
-        conversation = _load_conversation_or_raise(conversation_id)
+        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
+        if conversation is None:
+            raise ValueError(f"Conversation {conversation_id} not found")
 
         message: Dict[str, Any] = {
             "role": "user",
@@ -199,7 +209,7 @@ def add_user_message(conversation_id: str, content: str, image: Optional[str] = 
             message["image"] = image
 
         conversation.setdefault("messages", []).append(message)
-        save_conversation(conversation)
+        save_conversation(conversation, storage_dir=storage_dir)
 
 
 def add_assistant_message(
@@ -210,6 +220,7 @@ def add_assistant_message(
     mode: str = "text",
     annotations: Optional[List[Dict[str, Any]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    storage_dir: Optional[str] = None,
 ):
     """
     Add an assistant message with all 3 stages to a conversation.
@@ -221,9 +232,13 @@ def add_assistant_message(
         stage3: Final synthesized response
         mode: "text" (default Q&A) or "design" (image critique)
         annotations: Optional list of design annotation pins (design mode only)
+        metadata: Optional dictionary of evaluation metadata
+        storage_dir: Optional override for data directory
     """
     with _STORAGE_LOCK:
-        conversation = _load_conversation_or_raise(conversation_id)
+        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
+        if conversation is None:
+            raise ValueError(f"Conversation {conversation_id} not found")
 
         message: Dict[str, Any] = {
             "role": "assistant",
@@ -238,17 +253,17 @@ def add_assistant_message(
             message["metadata"] = metadata
 
         conversation.setdefault("messages", []).append(message)
-        save_conversation(conversation)
+        save_conversation(conversation, storage_dir=storage_dir)
 
 
-def delete_conversation(conversation_id: str) -> bool:
+def delete_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> bool:
     """
     Delete a conversation JSON file from storage.
 
     Returns:
         True if deleted, False if not found.
     """
-    path = get_conversation_path(conversation_id)
+    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
     if path is None:
         return False
     with _STORAGE_LOCK:
@@ -258,21 +273,24 @@ def delete_conversation(conversation_id: str) -> bool:
         return True
 
 
-def update_conversation_title(conversation_id: str, title: str):
+def update_conversation_title(conversation_id: str, title: str, storage_dir: Optional[str] = None):
     """
     Update the title of a conversation.
 
     Args:
         conversation_id: Conversation identifier
         title: New title for the conversation
+        storage_dir: Optional override for data directory
     """
     with _STORAGE_LOCK:
-        conversation = _load_conversation_or_raise(conversation_id)
+        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
+        if conversation is None:
+            raise ValueError(f"Conversation {conversation_id} not found")
         conversation["title"] = str(title).strip()[:100] or DEFAULT_CONVERSATION_TITLE
-        save_conversation(conversation)
+        save_conversation(conversation, storage_dir=storage_dir)
 
 
-def get_latest_design_verdict(conversation_id: str) -> Optional[Dict[str, Any]]:
+def get_latest_design_verdict(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """
     Find the most recent design-mode verdict in a conversation, along with the
     user message (and image) that prompted it.
@@ -280,7 +298,7 @@ def get_latest_design_verdict(conversation_id: str) -> Optional[Dict[str, Any]]:
     Returns a dict with keys: title, context, verdict, image, council, or None
     if the conversation has no design-mode verdict.
     """
-    conversation = get_conversation(conversation_id)
+    conversation = get_conversation(conversation_id, storage_dir=storage_dir)
     if conversation is None:
         return None
 
