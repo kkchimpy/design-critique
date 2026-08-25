@@ -372,9 +372,12 @@ async def publish_verdict(conversation_id: str):
             # Non-blocking warning/fallback if table insert has schema mismatch but storage succeeded
             pass
 
+    public_gallery_url = f"{config.PUBLIC_GALLERY_BASE_URL}/verdicts/{slug}.html"
+
     return {
         "status": "published",
-        "url": public_html_url,
+        "url": public_gallery_url,
+        "storage_url": public_html_url,
         "slug": slug,
     }
 
