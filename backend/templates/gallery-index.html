@@ -2,431 +2,720 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="description" content="Design Council Gallery — Independent AI-powered visual UX/UI design critiques and verdicts." />
-<title>Design Council — Critiques Gallery</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<meta name="description" content="Design Council Gallery — An infinite canvas of AI multi-model UX/UI design critiques, scorecards, and visual verdicts." />
+<title>Design Council — Infinite Canvas Gallery</title>
 <style>
-*,*::before,*::after{box-sizing:border-box;}
-:root{
-  --canvas:#FAFAFA;
-  --surface:#FFFFFF;
-  --surface-subtle:#F5F7F8;
-  --hairline:#E5E9EB;
-  --hairline-dark:#D1D9DE;
-  --ink:#0A0A0A;
-  --body-strong:#1A1F2C;
-  --body:#465B6B;
-  --muted:#7A8E9E;
-  --brand:#8552F6;
-  --brand-hover:#7440E6;
-  --brand-light:rgba(133,82,246,0.10);
-  --red:#D12F3A;
-  --red-light:rgba(209,47,58,0.10);
-  --orange:#B5630F;
-  --orange-light:rgba(246,141,46,0.12);
-  --yellow:#8A6E00;
-  --yellow-light:rgba(201,162,39,0.14);
-  --green:#1B8756;
-  --green-light:rgba(27,135,86,0.12);
-  --blue:#1C5FB8;
-  --blue-light:rgba(44,114,222,0.10);
-  --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:0 10px 24px -4px rgba(0,0,0,0.08),0 4px 10px -2px rgba(0,0,0,0.04);
-  --r-sm:6px;
-  --r-md:10px;
-  --r-lg:16px;
-  --r-pill:9999px;
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
-body{
-  margin:0;
-  min-height:100vh;
-  background:var(--canvas);
-  color:var(--ink);
-  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  font-size:15px;
-  line-height:1.5;
-  -webkit-font-smoothing:antialiased;
+
+/* Clay.com Design System Tokens from design.md */
+:root {
+  --canvas: #fffaf0;             /* warm cream-tinted canvas */
+  --surface-soft: #faf5e8;       /* soft cream surface */
+  --surface-card: #f5f0e0;       /* cream card floor */
+  --surface-strong: #ebe6d6;     /* emphasized surface */
+  --hairline: #e5e5e5;           /* hairline borders */
+  --ink: #0a0a0a;                /* primary near-black text */
+  --body-strong: #1a1a1a;
+  --body: #3a3a3a;
+  --muted: #6a6a6a;
+  --muted-soft: #9a9a9a;
+  --primary: #0a0a0a;
+  --on-primary: #ffffff;
+  --brand-purple: #8552f6;
+
+  /* Clay Accent Cards */
+  --brand-pink: #ff4d8b;
+  --brand-teal: #1a3a3a;
+  --brand-lavender: #b8a4ed;
+  --brand-peach: #ffb084;
+  --brand-ochre: #e8b94a;
+  --brand-mint: #a4d4c5;
+
+  /* Semantics */
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.12);
+  --orange: #f59e0b;
+  --orange-soft: rgba(245, 158, 11, 0.14);
+  --green: #22c55e;
+  --green-soft: rgba(34, 197, 94, 0.14);
+
+  /* Radii */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 9999px;
+
+  /* Shadows */
+  --shadow-subtle: 0 4px 20px -2px rgba(10, 10, 10, 0.05), 0 2px 6px -1px rgba(10, 10, 10, 0.03);
+  --shadow-lift: 0 20px 35px -8px rgba(10, 10, 10, 0.12), 0 8px 16px -4px rgba(10, 10, 10, 0.06);
 }
-.hero{
-  position:relative;
-  background:linear-gradient(180deg,#FFFFFF 0%,#F6F8FA 100%);
-  border-bottom:1px solid var(--hairline);
-  padding:56px 24px 44px;
+
+html, body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-.hero-inner{
-  max-width:1200px;
-  margin:0 auto;
-  display:flex;
-  flex-direction:column;
-  gap:16px;
+
+/* Infinite Canvas Background Grid / Dot Matrix */
+#viewport {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+  background-image: 
+    radial-gradient(circle, rgba(10, 10, 10, 0.08) 1.25px, transparent 1.25px),
+    linear-gradient(to right, rgba(10, 10, 10, 0.02) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 10, 10, 0.02) 1px, transparent 1px);
+  background-size: 32px 32px, 128px 128px, 128px 128px;
+  background-position: var(--grid-offset-x, 0px) var(--grid-offset-y, 0px);
 }
-.hero-tagline{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  align-self:flex-start;
-  background:var(--brand-light);
-  color:var(--brand);
-  font-size:12px;
-  font-weight:600;
-  letter-spacing:0.04em;
-  text-transform:uppercase;
-  padding:4px 12px;
-  border-radius:var(--r-pill);
+
+#viewport.is-dragging {
+  cursor: grabbing;
 }
-.hero-title{
-  margin:0;
-  font-size:36px;
-  font-weight:800;
-  letter-spacing:-0.03em;
-  color:var(--ink);
-  line-height:1.15;
+
+#canvas-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+  will-change: transform;
 }
-.hero-desc{
-  margin:0;
-  max-width:680px;
-  font-size:16px;
-  color:var(--body);
-  line-height:1.6;
+
+/* Floating Glass Minimal Header / Controls */
+.top-bar {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 250, 240, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  padding: 6px 10px 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  box-shadow: var(--shadow-subtle);
+  z-index: 100;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  max-width: calc(100vw - 32px);
 }
-.controls-bar{
-  max-width:1200px;
-  margin:32px auto 0;
-  padding:0 24px;
-  display:flex;
-  flex-wrap:wrap;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
+
+.top-bar:focus-within {
+  border-color: rgba(10, 10, 10, 0.25);
+  box-shadow: 0 8px 30px -4px rgba(10, 10, 10, 0.12);
 }
-.search-box{
-  position:relative;
-  flex:1;
-  min-width:260px;
-  max-width:440px;
+
+.brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--ink);
+  white-space: nowrap;
+  padding-right: 4px;
 }
-.search-input{
-  width:100%;
-  height:42px;
-  padding:0 16px 0 38px;
-  border:1px solid var(--hairline-dark);
-  border-radius:var(--r-sm);
-  background:#fff;
-  font-size:14px;
-  font-family:inherit;
-  color:var(--ink);
-  outline:none;
-  transition:border-color .15s,box-shadow .15s;
+
+.brand-badge .seal-icon {
+  font-size: 15px;
 }
-.search-input:focus{
-  border-color:var(--brand);
-  box-shadow:0 0 0 3px rgba(133,82,246,0.18);
+
+.search-container {
+  position: relative;
+  display: flex;
+  align-items: center;
 }
-.search-icon{
-  position:absolute;
-  left:12px;
-  top:50%;
-  transform:translateY(-50%);
-  width:16px;
-  height:16px;
-  color:var(--muted);
-  pointer-events:none;
+
+.search-input {
+  width: 240px;
+  height: 34px;
+  padding: 0 12px 0 32px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.15s, background 0.15s;
+  user-select: text;
+  -webkit-user-select: text;
 }
-.filter-pills{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  flex-wrap:wrap;
+
+.search-input:focus {
+  width: 320px;
+  border-color: var(--ink);
+  background: #ffffff;
 }
-.filter-btn{
-  height:34px;
-  padding:0 14px;
-  border:1px solid var(--hairline);
-  background:#fff;
-  border-radius:var(--r-pill);
-  font-size:13px;
-  font-weight:500;
-  color:var(--body);
-  cursor:pointer;
-  transition:all .15s ease;
-  font-family:inherit;
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  pointer-events: none;
 }
-.filter-btn:hover{
-  border-color:var(--hairline-dark);
-  color:var(--ink);
+
+.pill-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.filter-btn.is-active{
-  background:var(--body-strong);
-  color:#fff;
-  border-color:var(--body-strong);
+
+.pill-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
-.stats-summary{
-  font-size:13px;
-  color:var(--muted);
-  font-weight:500;
+
+.pill-btn:hover {
+  background: var(--surface-card);
+  color: var(--ink);
 }
-.main-wrap{
-  max-width:1200px;
-  margin:28px auto 80px;
-  padding:0 24px;
+
+.pill-btn.is-active {
+  background: var(--ink);
+  color: #ffffff;
 }
-.gallery-grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
-  gap:28px;
+
+/* Navigation Dock Controls (Bottom-Right) */
+.nav-dock {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 250, 240, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 6px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  box-shadow: var(--shadow-subtle);
+  z-index: 100;
 }
-.critique-card{
-  display:flex;
-  flex-direction:column;
-  background:var(--surface);
-  border:1px solid var(--hairline);
-  border-radius:var(--r-md);
-  overflow:hidden;
-  text-decoration:none;
-  color:inherit;
-  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
-  box-shadow:var(--shadow-sm);
+
+.dock-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  font-size: 13px;
+  font-weight: 600;
 }
-.critique-card:hover{
-  transform:translateY(-3px);
-  box-shadow:var(--shadow-md);
-  border-color:rgba(133,82,246,0.35);
+
+.dock-btn:hover {
+  background: var(--surface-card);
 }
-.card-media{
-  position:relative;
-  width:100%;
-  height:210px;
-  background:#0d1117;
-  overflow:hidden;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  border-bottom:1px solid var(--hairline);
+
+.dock-btn:active {
+  transform: scale(0.94);
 }
-.card-img{
-  width:100%;
-  height:100%;
-  object-fit:cover;
-  object-position:top center;
-  transition:transform .25s ease;
+
+.dock-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(10, 10, 10, 0.1);
+  margin: 0 2px;
 }
-.critique-card:hover .card-img{
-  transform:scale(1.02);
+
+.dock-stats {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
-.card-img-placeholder{
-  color:var(--muted);
-  font-size:13px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:8px;
+
+/* Minimalist Canvas Cards */
+.canvas-card {
+  position: absolute;
+  width: 360px;
+  background: #ffffff;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-subtle);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
 }
-.score-pill{
-  position:absolute;
-  top:12px;
-  right:12px;
-  background:rgba(26,31,44,0.92);
-  backdrop-filter:blur(8px);
-  color:#fff;
-  padding:4px 10px;
-  border-radius:var(--r-pill);
-  font-size:12px;
-  font-weight:700;
-  display:flex;
-  align-items:center;
-  gap:4px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.2);
-  border:1px solid rgba(255,255,255,0.15);
+
+.canvas-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-lift);
+  border-color: rgba(10, 10, 10, 0.22);
+  z-index: 10;
 }
-.score-val{
-  color:#4ADE80;
+
+.canvas-card.is-dimmed {
+  opacity: 0.18;
+  pointer-events: none;
+  filter: grayscale(0.8);
 }
-.score-val--warn{
-  color:#FBBF24;
+
+.card-media {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background: #0f1318;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.score-val--crit{
-  color:#F87171;
+
+.card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  pointer-events: none;
+  transition: transform 0.35s ease;
 }
-.card-body{
-  padding:18px 20px;
-  display:flex;
-  flex-direction:column;
-  flex:1;
-  gap:12px;
+
+.canvas-card:hover .card-img {
+  transform: scale(1.04);
 }
-.card-title{
-  margin:0;
-  font-size:17px;
-  font-weight:700;
-  color:var(--ink);
-  line-height:1.3;
+
+.card-img-placeholder {
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
-.card-context{
-  margin:0;
-  font-size:13px;
-  color:var(--body);
-  line-height:1.5;
-  display:-webkit-box;
-  -webkit-line-clamp:2;
-  -webkit-box-orient:vertical;
-  overflow:hidden;
+
+.score-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(10, 10, 10, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
-.card-badges{
-  display:flex;
-  flex-wrap:wrap;
-  gap:6px;
-  align-items:center;
+
+.score-num { color: #4ade80; }
+.score-num--warn { color: #fbbf24; }
+.score-num--crit { color: #f87171; }
+
+.card-content {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #ffffff;
 }
-.badge{
-  font-size:11px;
-  font-weight:600;
-  padding:2px 8px;
-  border-radius:4px;
+
+.card-header-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
 }
-.badge--crit{
-  background:var(--red-light);
-  color:var(--red);
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.3px;
+  line-height: 1.3;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.badge--high{
-  background:var(--orange-light);
-  color:var(--orange);
+
+.card-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted-soft);
+  white-space: nowrap;
 }
-.badge--med{
-  background:var(--yellow-light);
-  color:var(--yellow);
+
+.card-context {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--body);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
 }
-.badge--low{
-  background:var(--blue-light);
-  color:var(--blue);
+
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid rgba(10, 10, 10, 0.05);
+  margin-top: 4px;
 }
-.badge--pins{
-  background:var(--surface-subtle);
-  border:1px solid var(--hairline);
-  color:var(--body);
+
+.card-tags {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
-.card-footer{
-  margin-top:auto;
-  padding-top:14px;
-  border-top:1px solid var(--hairline);
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  font-size:12px;
-  color:var(--muted);
+
+.tag-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  line-height: 1.3;
 }
-.council-models{
-  display:flex;
-  align-items:center;
-  gap:4px;
+
+.tag--crit { background: var(--red-soft); color: var(--red); }
+.tag--high { background: var(--orange-soft); color: var(--orange); }
+.tag--med  { background: var(--surface-card); color: var(--body-strong); }
+.tag--pins { background: var(--surface-soft); color: var(--muted); border: 1px solid var(--hairline); }
+
+.council-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
 }
-.council-count{
-  font-weight:500;
-  color:var(--body);
+
+/* Minimalist Canvas Help Hint (Bottom Left) */
+.canvas-hint {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  background: rgba(255, 250, 240, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 6px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid rgba(10, 10, 10, 0.06);
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.date-str{
-  font-variant-numeric:tabular-nums;
+
+.canvas-hint kbd {
+  font-family: inherit;
+  background: #ffffff;
+  border: 1px solid var(--hairline);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 10px;
 }
-.empty-state{
-  text-align:center;
-  padding:80px 20px;
-  background:#fff;
-  border:1px dashed var(--hairline-dark);
-  border-radius:var(--r-md);
-  color:var(--muted);
-  display:none;
-}
-.empty-state h3{
-  font-size:18px;
-  color:var(--ink);
-  margin:0 0 8px;
-}
-footer{
-  border-top:1px solid var(--hairline);
-  background:var(--surface-subtle);
-  padding:40px 24px;
-  text-align:center;
-  font-size:13px;
-  color:var(--muted);
-}
-footer a{
-  color:var(--brand);
-  text-decoration:none;
-  font-weight:600;
-}
-footer a:hover{
-  text-decoration:underline;
-}
-@media (max-width:640px){
-  .hero{padding:36px 16px 28px;}
-  .hero-title{font-size:26px;}
-  .controls-bar{padding:0 16px;flex-direction:column;align-items:stretch;}
-  .search-box{max-width:100%;}
-  .main-wrap{padding:0 16px;}
-  .gallery-grid{grid-template-columns:1fr;}
+
+@media (max-width: 768px) {
+  .top-bar {
+    width: calc(100vw - 24px);
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: var(--r-lg);
+  }
+  .search-input { width: 100% !important; }
+  .canvas-hint { display: none; }
 }
 </style>
 </head>
 <body>
 
-<header class="hero">
-  <div class="hero-inner">
-    <div class="hero-tagline">Design Council Gallery</div>
-    <h1 class="hero-title">Visual UX & UI Verdicts</h1>
-    <p class="hero-desc">
-      Independent multi-model AI evaluations of real-world screens, design systems, and flows. Every verdict includes pinned visual findings, rubric scorecards, and prioritized remediations.
-    </p>
+<!-- Floating Global Filter / Search Bar -->
+<header class="top-bar">
+  <div class="brand-badge">
+    <span class="seal-icon">⛰️</span>
+    <span>Design Council</span>
   </div>
-</header>
 
-<section class="controls-bar">
-  <div class="search-box">
+  <div class="search-container">
     <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="11" cy="11" r="8"></circle>
       <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
     </svg>
-    <input type="text" id="critiqueSearch" class="search-input" placeholder="Search by title, context, or issue..." aria-label="Search critiques" />
+    <input type="text" id="critiqueSearch" class="search-input" placeholder="Search company, screen, or issue…" aria-label="Search design critiques" />
   </div>
 
-  <div class="filter-pills">
-    <button type="button" class="filter-btn is-active" data-filter="all">All Verdicts</button>
-    <button type="button" class="filter-btn" data-filter="crit">Has Critical Issues</button>
-    <button type="button" class="filter-btn" data-filter="top-rated">Top Rated (&ge; 4.0)</button>
+  <div class="pill-filters">
+    <button type="button" class="pill-btn is-active" data-filter="all">All</button>
+    <button type="button" class="pill-btn" data-filter="crit">Critical</button>
+    <button type="button" class="pill-btn" data-filter="top-rated">Top Rated (&ge; 4.0)</button>
   </div>
+</header>
 
-  <div class="stats-summary" id="statsCount">
-    __COUNT_LABEL__
-  </div>
-</section>
-
-<main class="main-wrap">
-  <div class="gallery-grid" id="galleryGrid">
+<!-- Infinite Canvas Viewport -->
+<div id="viewport">
+  <div id="canvas-world">
     __GALLERY_CARDS_HTML__
   </div>
+</div>
 
-  <div class="empty-state" id="emptyState">
-    <h3>No matching critiques found</h3>
-    <p>Try adjusting your search terms or active filters.</p>
-  </div>
-</main>
+<!-- Canvas Keyboard/Mouse Hint -->
+<div class="canvas-hint">
+  <span>Drag to pan &bull; Scroll to zoom &bull; <kbd>Space</kbd> + Drag &bull; <kbd>0</kbd> Reset</span>
+</div>
 
-<footer>
-  <div>Published with <a href="https://github.com/kkchimpy/design-critique" target="_blank" rel="noopener">Design Critique</a> &bull; Powered by LLM Council</div>
-</footer>
+<!-- Navigation Dock -->
+<div class="nav-dock">
+  <span class="dock-stats" id="dockStats">__COUNT_LABEL__</span>
+  <div class="dock-divider"></div>
+  <button type="button" class="dock-btn" id="btnZoomIn" title="Zoom In">+</button>
+  <button type="button" class="dock-btn" id="btnZoomOut" title="Zoom Out">&minus;</button>
+  <button type="button" class="dock-btn" id="btnResetView" title="Reset View">&#8634;</button>
+</div>
 
 <script>
 (function() {
-  const searchInput = document.getElementById('critiqueSearch');
-  const filterBtns = document.querySelectorAll('.filter-btn');
-  const cards = Array.from(document.querySelectorAll('.critique-card'));
-  const emptyState = document.getElementById('emptyState');
-  const statsCount = document.getElementById('statsCount');
+  'use strict';
 
+  // ── Supabase Live Sync (Fetches newly published critiques instantly) ──────────
+  const SUPABASE_URL = "https://ybnptwflkjxqhuzyrdky.supabase.co";
+  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnB0d2Zsa2p4cWh1enlyZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NDU3MTUsImV4cCI6MjEwMzIyMTcxNX0.uhPZf5qua6JzVVreuDH0fAeOaXSE96kCqHbsITId3iE";
+
+  const viewport = document.getElementById('viewport');
+  const world = document.getElementById('canvas-world');
+  const searchInput = document.getElementById('critiqueSearch');
+  const filterBtns = document.querySelectorAll('.pill-btn');
+  const dockStats = document.getElementById('dockStats');
+  const btnZoomIn = document.getElementById('btnZoomIn');
+  const btnZoomOut = document.getElementById('btnZoomOut');
+  const btnResetView = document.getElementById('btnResetView');
+
+  // ── Infinite Canvas Transformation State ─────────────────────────────────
+  let scale = 1.0;
+  let posX = 0;
+  let posY = 0;
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
   let activeFilter = 'all';
   let searchQuery = '';
 
-  function update() {
-    let visibleCount = 0;
+  const CARD_WIDTH = 360;
+  const CARD_GAP_X = 64;
+  const CARD_GAP_Y = 64;
+
+  function updateTransform() {
+    world.style.transform = `translate3d(${posX}px, ${posY}px, 0) scale(${scale})`;
+    viewport.style.setProperty('--grid-offset-x', `${posX}px`);
+    viewport.style.setProperty('--grid-offset-y', `${posY}px`);
+  }
+
+  function centerCanvas() {
+    const cards = Array.from(document.querySelectorAll('.canvas-card'));
+    if (!cards.length) {
+      posX = window.innerWidth / 2;
+      posY = window.innerHeight / 2;
+      scale = 1.0;
+      updateTransform();
+      return;
+    }
+
+    // Calculate grid layout bounds
+    let cols = Math.min(cards.length, 4);
+    let rows = Math.ceil(cards.length / cols);
+    let totalW = cols * (CARD_WIDTH + CARD_GAP_X) - CARD_GAP_X;
+    let totalH = rows * (340 + CARD_GAP_Y) - CARD_GAP_Y;
+
+    scale = Math.min(1.0, (window.innerWidth * 0.85) / totalW, (window.innerHeight * 0.8) / totalH);
+    scale = Math.max(0.4, Math.min(1.2, scale));
+
+    posX = (window.innerWidth - totalW * scale) / 2;
+    posY = (window.innerHeight - totalH * scale) / 2;
+    updateTransform();
+  }
+
+  // Position cards in a structured 2D canvas grid
+  function layoutCards() {
+    const cards = Array.from(document.querySelectorAll('.canvas-card'));
+    const cols = Math.min(cards.length, 4);
+
+    cards.forEach((card, idx) => {
+      const col = idx % cols;
+      const row = Math.floor(idx / cols);
+      const x = col * (CARD_WIDTH + CARD_GAP_X);
+      const y = row * (340 + CARD_GAP_Y);
+      card.style.left = `${x}px`;
+      card.style.top = `${y}px`;
+    });
+  }
+
+  // ── Pan & Zoom Interaction ───────────────────────────────────────────────
+  viewport.addEventListener('mousedown', (e) => {
+    // If clicking directly on a link or inside a card that is clicked, allow click
+    if (e.target.closest('a') && !isDragging) return;
+
+    isDragging = true;
+    viewport.classList.add('is-dragging');
+    startX = e.clientX - posX;
+    startY = e.clientY - posY;
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    posX = e.clientX - startX;
+    posY = e.clientY - startY;
+    updateTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isDragging = false;
+    viewport.classList.remove('is-dragging');
+  });
+
+  // Wheel Zoom (anchored to cursor)
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoomFactor = 1.1;
+    const prevScale = scale;
+
+    if (e.deltaY < 0) {
+      scale = Math.min(scale * zoomFactor, 2.5);
+    } else {
+      scale = Math.max(scale / zoomFactor, 0.25);
+    }
+
+    // Zoom towards mouse position
+    const rect = viewport.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    posX = mouseX - (mouseX - posX) * (scale / prevScale);
+    posY = mouseY - (mouseY - posY) * (scale / prevScale);
+
+    updateTransform();
+  }, { passive: false });
+
+  // Touch Support (Pinch to zoom, pan)
+  let initialTouchDist = 0;
+  let initialTouchScale = 1;
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      startX = e.touches[0].clientX - posX;
+      startY = e.touches[0].clientY - posY;
+    } else if (e.touches.length === 2) {
+      isDragging = false;
+      initialTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialTouchScale = scale;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 1 && isDragging) {
+      posX = e.touches[0].clientX - startX;
+      posY = e.touches[0].clientY - startY;
+      updateTransform();
+    } else if (e.touches.length === 2 && initialTouchDist > 0) {
+      const currentDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      scale = Math.max(0.25, Math.min(2.5, initialTouchScale * (currentDist / initialTouchDist)));
+      updateTransform();
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchend', () => {
+    isDragging = false;
+    initialTouchDist = 0;
+  });
+
+  // Controls
+  if (btnZoomIn) {
+    btnZoomIn.addEventListener('click', () => {
+      scale = Math.min(scale * 1.25, 2.5);
+      updateTransform();
+    });
+  }
+  if (btnZoomOut) {
+    btnZoomOut.addEventListener('click', () => {
+      scale = Math.max(scale / 1.25, 0.25);
+      updateTransform();
+    });
+  }
+  if (btnResetView) {
+    btnResetView.addEventListener('click', centerCanvas);
+  }
+
+  // Keyboard Shortcuts
+  window.addEventListener('keydown', (e) => {
+    if (document.activeElement === searchInput) return;
+    if (e.key === '0') centerCanvas();
+    if (e.key === '=' || e.key === '+') {
+      scale = Math.min(scale * 1.2, 2.5);
+      updateTransform();
+    }
+    if (e.key === '-' || e.key === '_') {
+      scale = Math.max(scale / 1.2, 0.25);
+      updateTransform();
+    }
+  });
+
+  // ── Search & Filter Logic ────────────────────────────────────────────────
+  function applyFilters() {
     const query = searchQuery.toLowerCase().trim();
+    const cards = Array.from(document.querySelectorAll('.canvas-card'));
+    let matchedCount = 0;
 
     cards.forEach(card => {
       const title = (card.dataset.title || '').toLowerCase();
@@ -443,23 +732,20 @@ footer a:hover{
         matchesFilter = score >= 4.0;
       }
 
-      const isVisible = matchesSearch && matchesFilter;
-      card.style.display = isVisible ? 'flex' : 'none';
-      if (isVisible) visibleCount++;
+      const isMatch = matchesSearch && matchesFilter;
+      card.classList.toggle('is-dimmed', !isMatch);
+      if (isMatch) matchedCount++;
     });
 
-    if (emptyState) {
-      emptyState.style.display = visibleCount === 0 ? 'block' : 'none';
-    }
-    if (statsCount) {
-      statsCount.textContent = `Showing ${visibleCount} of ${cards.length} verdict${cards.length === 1 ? '' : 's'}`;
+    if (dockStats) {
+      dockStats.textContent = `${matchedCount} / ${cards.length} Verdicts`;
     }
   }
 
   if (searchInput) {
-    searchInput.addEventListener('input', e => {
+    searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value;
-      update();
+      applyFilters();
     });
   }
 
@@ -468,9 +754,86 @@ footer a:hover{
       filterBtns.forEach(b => b.classList.remove('is-active'));
       btn.classList.add('is-active');
       activeFilter = btn.dataset.filter;
-      update();
+      applyFilters();
     });
   });
+
+  // ── Fetch Live Supabase Verdicts and Insert Dynamically ───────────────────
+  async function syncLiveVerdicts() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/verdicts?select=*&order=created_at.desc&apikey=${SUPABASE_ANON}`);
+      if (!res.ok) return;
+      const remoteVerdicts = await res.json();
+      if (!Array.isArray(remoteVerdicts) || !remoteVerdicts.length) return;
+
+      const existingIds = new Set(
+        Array.from(document.querySelectorAll('.canvas-card')).map(c => c.dataset.id)
+      );
+
+      let added = false;
+      remoteVerdicts.forEach(v => {
+        if (existingIds.has(v.conversation_id || v.id) || existingIds.has(v.slug)) return;
+
+        const card = document.createElement('a');
+        card.className = 'canvas-card';
+        card.href = `verdicts/${v.slug}.html`;
+        card.dataset.id = v.conversation_id || v.id;
+        card.dataset.title = v.title || 'Design Critique';
+        card.dataset.context = v.context || '';
+        card.dataset.critCount = v.crit_count || 0;
+        card.dataset.score = v.avg_score || 0;
+
+        let scorePill = '';
+        if (v.avg_score != null) {
+          const cls = v.avg_score < 3 ? 'score-num--crit' : (v.avg_score < 4 ? 'score-num--warn' : 'score-num');
+          scorePill = `<div class="score-badge"><span>Score</span><span class="${cls}">${Number(v.avg_score).toFixed(1)} / 5</span></div>`;
+        }
+
+        let mediaHtml = v.image_url
+          ? `<img src="${v.image_url}" alt="${v.title || 'Design'}" class="card-img" loading="lazy" />`
+          : `<div class="card-img-placeholder"><span>No Screenshot</span></div>`;
+
+        let badgesHtml = '';
+        if (v.crit_count > 0) badgesHtml += `<span class="tag-badge tag--crit">${v.crit_count} Critical</span>`;
+        if (v.high_count > 0) badgesHtml += `<span class="tag-badge tag--high">${v.high_count} Major</span>`;
+        if (v.med_count > 0) badgesHtml += `<span class="tag-badge tag--med">${v.med_count} Moderate</span>`;
+
+        card.innerHTML = `
+          <div class="card-media">
+            ${mediaHtml}
+            ${scorePill}
+          </div>
+          <div class="card-content">
+            <div class="card-header-row">
+              <h2 class="card-title">${v.title || 'Design Critique'}</h2>
+            </div>
+            <p class="card-context">${v.context || 'Visual UX/UI design evaluation.'}</p>
+            <div class="card-footer">
+              <div class="card-tags">${badgesHtml}</div>
+              <span class="council-count">${v.council?.length || 4} Reviewers</span>
+            </div>
+          </div>
+        `;
+        world.prepend(card);
+        added = true;
+      });
+
+      if (added) {
+        layoutCards();
+        applyFilters();
+      }
+    } catch (e) {
+      console.warn('Supabase gallery sync:', e);
+    }
+  }
+
+  // Initial layout & center
+  layoutCards();
+  centerCanvas();
+  applyFilters();
+  syncLiveVerdicts();
+
+  window.addEventListener('resize', layoutCards);
 })();
 </script>
 </body>

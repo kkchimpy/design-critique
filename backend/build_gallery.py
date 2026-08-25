@@ -123,13 +123,13 @@ def build_card_html(item: Dict[str, Any]) -> str:
     # Score Pill
     score_pill_html = ""
     if avg_score is not None:
-        score_class = "score-val"
+        score_class = "score-num"
         if avg_score < 3.0:
-            score_class = "score-val--crit"
+            score_class = "score-num--crit"
         elif avg_score < 4.0:
-            score_class = "score-val--warn"
+            score_class = "score-num--warn"
         score_pill_html = f'''
-        <div class="score-pill">
+        <div class="score-badge">
           <span>Score</span>
           <span class="{score_class}">{avg_score:.1f} / 5</span>
         </div>'''
@@ -137,20 +137,20 @@ def build_card_html(item: Dict[str, Any]) -> str:
     # Badges
     badges_html = []
     if crit_count > 0:
-        badges_html.append(f'<span class="badge badge--crit">{crit_count} Critical</span>')
+        badges_html.append(f'<span class="tag-badge tag--crit">{crit_count} Critical</span>')
     if high_count > 0:
-        badges_html.append(f'<span class="badge badge--high">{high_count} Major</span>')
+        badges_html.append(f'<span class="tag-badge tag--high">{high_count} Major</span>')
     if med_count > 0:
-        badges_html.append(f'<span class="badge badge--med">{med_count} Moderate</span>')
+        badges_html.append(f'<span class="tag-badge tag--med">{med_count} Moderate</span>')
     if annotation_count > 0 and not (crit_count or high_count or med_count):
-        badges_html.append(f'<span class="badge badge--pins">{annotation_count} Pins</span>')
+        badges_html.append(f'<span class="tag-badge tag--pins">{annotation_count} Pins</span>')
 
     badges_rendered = "".join(badges_html)
 
     council_label = f"{len(council_models)} Reviewer{'s' if len(council_models) != 1 else ''}"
 
     return f'''
-    <a class="critique-card" href="{url}"
+    <a class="canvas-card" href="{url}"
        data-title="{safe_title}"
        data-context="{safe_context}"
        data-crit-count="{crit_count}"
@@ -159,17 +159,17 @@ def build_card_html(item: Dict[str, Any]) -> str:
         {media_html}
         {score_pill_html}
       </div>
-      <div class="card-body">
-        <h2 class="card-title">{safe_title}</h2>
-        <p class="card-context">{safe_context}</p>
-        <div class="card-badges">
-          {badges_rendered}
+      <div class="card-content">
+        <div class="card-header-row">
+          <h2 class="card-title">{safe_title}</h2>
+          <span class="card-date">{date_formatted}</span>
         </div>
+        <p class="card-context">{safe_context}</p>
         <div class="card-footer">
-          <div class="council-models">
-            <span class="council-count">{council_label}</span>
+          <div class="card-tags">
+            {badges_rendered}
           </div>
-          <span class="date-str">{date_formatted}</span>
+          <span class="council-count">{council_label}</span>
         </div>
       </div>
     </a>'''
