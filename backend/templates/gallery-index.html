@@ -16,27 +16,28 @@
 
 /* Clay.com Design System Tokens from design.md */
 :root {
-  --canvas: #fffaf0;             /* warm cream-tinted canvas */
-  --surface-soft: #faf5e8;       /* soft cream surface */
-  --surface-card: #f5f0e0;       /* cream card floor */
-  --surface-strong: #ebe6d6;     /* emphasized surface */
-  --hairline: #e5e5e5;           /* hairline borders */
-  --ink: #0a0a0a;                /* primary near-black text */
-  --body-strong: #1a1a1a;
-  --body: #3a3a3a;
-  --muted: #6a6a6a;
-  --muted-soft: #9a9a9a;
-  --primary: #0a0a0a;
+  --canvas: #f6f5f4;             /* Notion warm paper canvas */
+  --surface-soft: #ffffff;       /* white cards / control surfaces */
+  --surface-card: #ffffff;
+  --surface-strong: #ebe9e7;
+  --hairline: #e6e6e6;           /* Notion hairline */
+  --ink: #000000;                /* Notion ink */
+  --body-strong: #31302e;
+  --body: #31302e;
+  --muted: #615d59;
+  --muted-soft: #a39e98;
+  --primary: #0075de;            /* Notion blue: structural accent */
   --on-primary: #ffffff;
-  --brand-purple: #8552f6;
+  --brand-purple: #0075de;
 
   /* Clay Accent Cards */
-  --brand-pink: #ff4d8b;
+    --brand-pink: #ff64c8;
   --brand-teal: #1a3a3a;
   --brand-lavender: #b8a4ed;
   --brand-peach: #ffb084;
-  --brand-ochre: #e8b94a;
+    --brand-ochre: #dd5b00;
   --brand-mint: #a4d4c5;
+  --brand-blue-active: #005bab;
 
   /* Semantics */
   --red: #ef4444;
@@ -77,10 +78,10 @@ html, body {
   height: 100%;
   overflow: hidden;
   cursor: grab;
-  background-image: 
-    radial-gradient(circle, rgba(10, 10, 10, 0.08) 1.25px, transparent 1.25px),
-    linear-gradient(to right, rgba(10, 10, 10, 0.02) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(10, 10, 10, 0.02) 1px, transparent 1px);
+    background-image:
+      radial-gradient(circle, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+      linear-gradient(to right, rgba(0, 0, 0, 0.018) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.018) 1px, transparent 1px);
   background-size: 32px 32px, 128px 128px, 128px 128px;
   background-position: var(--grid-offset-x, 0px) var(--grid-offset-y, 0px);
 }
@@ -108,7 +109,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: rgba(255, 250, 240, 0.88);
+  background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   padding: 6px 10px 6px 14px;
@@ -132,7 +133,7 @@ html, body {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.2px;
-  color: var(--ink);
+  color: var(--primary);
   white-space: nowrap;
   padding-right: 4px;
 }
@@ -174,7 +175,7 @@ html, body {
   left: 10px;
   width: 14px;
   height: 14px;
-  color: var(--muted);
+  color: var(--primary);
   pointer-events: none;
 }
 
@@ -234,7 +235,7 @@ html, body {
   width: 32px;
   height: 32px;
   border-radius: var(--r-pill);
-  border: none;
+  background: rgba(255, 255, 255, 0.7);
   background: transparent;
   color: var(--ink);
   cursor: pointer;
@@ -274,11 +275,11 @@ html, body {
   background: #ffffff;
   border-radius: var(--r-lg);
   border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-subtle);
+  box-shadow: 0 0.175px 1.041px rgba(0,0,0,0.01), 0 0.8px 2.925px rgba(0,0,0,0.02), 0 2.025px 7.847px rgba(0,0,0,0.027), 0 4px 18px rgba(0,0,0,0.04);
   overflow: hidden;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.25s ease;
+  transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.36s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease, opacity 0.25s ease;
   display: flex;
   flex-direction: column;
   cursor: pointer;
@@ -286,7 +287,7 @@ html, body {
 
 .canvas-card:hover {
   transform: translateY(-6px) scale(1.02);
-  box-shadow: var(--shadow-lift);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02), 0 8px 30px rgba(0,0,0,0.06);
   border-color: rgba(10, 10, 10, 0.22);
   z-index: 10;
 }
@@ -301,7 +302,7 @@ html, body {
   position: relative;
   width: 100%;
   height: 220px;
-  background: #0f1318;
+  background: var(--surface-card);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -354,7 +355,7 @@ html, body {
 .score-num--crit { color: #f87171; }
 
 .card-content {
-  padding: 16px 18px 18px;
+  padding: 20px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -369,8 +370,8 @@ html, body {
 }
 
 .card-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--ink);
   letter-spacing: -0.3px;
   line-height: 1.3;
@@ -388,8 +389,8 @@ html, body {
 }
 
 .card-context {
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--body);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -415,16 +416,16 @@ html, body {
 }
 
 .tag-badge {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   padding: 2px 7px;
-  border-radius: var(--r-xs);
+  border-radius: var(--r-pill);
   line-height: 1.3;
 }
 
-.tag--crit { background: var(--red-soft); color: var(--red); }
-.tag--high { background: var(--orange-soft); color: var(--orange); }
-.tag--med  { background: var(--surface-card); color: var(--body-strong); }
+.tag--crit { background: rgba(255, 100, 200, 0.16); color: #391c57; }
+.tag--high { background: rgba(221, 91, 0, 0.14); color: #793400; }
+.tag--med  { background: rgba(214, 182, 246, 0.34); color: #391c57; }
 .tag--pins { background: var(--surface-soft); color: var(--muted); border: 1px solid var(--hairline); }
 
 .council-count {
@@ -526,7 +527,8 @@ html, body {
 
   // ── Supabase Live Sync (Fetches newly published critiques instantly) ──────────
   const SUPABASE_URL = "https://ybnptwflkjxqhuzyrdky.supabase.co";
-  const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnB0d2Zsa2p4cWh1enlyZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc2NDU3MTUsImV4cCI6MjEwMzIyMTcxNX0.uhPZf5qua6JzVVreuDH0fAeOaXSE96kCqHbsITId3iE";
+    const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnB0d2Zsa2p4cWh1enlyZGt5Iiwicm9sIjoiYW5vbiIsImlhdCI6MTc4NzY0NTcxNSwiZXhwIjoyMTAzMjIxNzE1fQ.uhPZf5qua6JzVVreuDH0fAeOaXSE96kCqHbsITId3iE";
+    const PUBLIC_VERDICTS = `${SUPABASE_URL}/storage/v1/object/public/verdicts/`;
 
   const viewport = document.getElementById('viewport');
   const world = document.getElementById('canvas-world');
@@ -769,15 +771,21 @@ html, body {
       const existingIds = new Set(
         Array.from(document.querySelectorAll('.canvas-card')).map(c => c.dataset.id)
       );
+      const existingSlugs = new Set(
+        Array.from(document.querySelectorAll('.canvas-card')).map(c => c.dataset.slug).filter(Boolean)
+      );
 
       let added = false;
       remoteVerdicts.forEach(v => {
-        if (existingIds.has(v.conversation_id || v.id) || existingIds.has(v.slug)) return;
+        if (existingIds.has(v.conversation_id || v.id) || existingSlugs.has(v.slug)) return;
 
         const card = document.createElement('a');
         card.className = 'canvas-card';
-        card.href = `verdicts/${v.slug}.html`;
+        card.href = v.html_url || `${PUBLIC_VERDICTS}${encodeURIComponent(v.slug)}.html`;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
         card.dataset.id = v.conversation_id || v.id;
+        card.dataset.slug = v.slug || '';
         card.dataset.title = v.title || 'Design Critique';
         card.dataset.context = v.context || '';
         card.dataset.critCount = v.crit_count || 0;
