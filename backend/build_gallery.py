@@ -13,6 +13,8 @@ import json
 import os
 import re
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -23,8 +25,68 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.export import render_verdict_html
 from backend.storage import get_latest_design_verdict, list_conversations
+from backend import config
 
 _GALLERY_TEMPLATE_PATH = PROJECT_ROOT / "backend" / "templates" / "gallery-index.html"
+
+
+def fetch_published_verdicts() -> List[Dict[str, Any]]:
+    """Fetch public verdict metadata so Pages builds do not depend on ignored local JSON."""
+    url = (
+        f"{config.SUPABASE_URL}/rest/v1/verdicts"
+        "?select=id,conversation_id,slug,title,context,image_url,html_url,council,annotations,avg_score,crit_count,high_count,med_count,created_at"
+        "&order=created_at.desc"
+    )
+    request = urllib.request.Request(
+        url,
+        headers={
+            "apikey": config.SUPABASE_ANON_KEY,
+            "Accept": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ValueError) as error:
+        print(f"Warning: Supabase gallery sync failed: {error}", file=sys.stderr)
+        return []
+    return payload if isinstance(payload, list) else []
+
+
+def published_item_to_gallery_item(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a published Supabase row to the fields used by the gallery template."""
+    annotations = record.get("annotations") or []
+    return {
+        "id": record.get("conversation_id") or record.get("id"),
+        "slug": record.get("slug") or slug_from_title(record.get("title", ""), record.get("id", "")),
+        "title": record.get("title") or "Design Critique",
+        "context": record.get("context") or "",
+        "created_at": record.get("created_at"),
+        "image": record.get("image_url") or "",
+        "avg_score": record.get("avg_score"),
+        "score_dims_count": 0,
+        "annotation_count": len(annotations),
+        "crit_count": int(record.get("crit_count") or 0),
+        "high_count": int(record.get("high_count") or 0),
+        "med_count": int(record.get("med_count") or 0),
+        "low_count": 0,
+        "council": record.get("council") or [],
+        "url": record.get("html_url") or f"{config.SUPABASE_URL}/storage/v1/object/public/{config.SUPABASE_BUCKET}/{record.get('slug', '')}.html",
+    }
+
+
+def fetch_published_html(record: Dict[str, Any]) -> Optional[str]:
+    """Download the already-published standalone page for the Pages artifact."""
+    html_url = record.get("html_url")
+    if not html_url:
+        return None
+    try:
+        request = urllib.request.Request(html_url, headers={"Accept": "text/html"})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            return response.read().decode("utf-8")
+    except (urllib.error.URLError, TimeoutError, UnicodeDecodeError) as error:
+        print(f"Warning: published verdict download failed: {error}", file=sys.stderr)
+        return None
 
 
 def slug_from_title(title: str, conv_id: str) -> str:
@@ -93,7 +155,7 @@ def format_iso_date(iso_str: Optional[str]) -> str:
 
 
 def build_card_html(item: Dict[str, Any]) -> str:
-    """Generate HTML card for one critique item in the gallery grid."""
+    """Generate one fixed-viewport watch-dial item."""
     safe_title = html_lib.escape(item.get("title") or "Design Critique")
     safe_context = html_lib.escape(item.get("context") or "Visual UX/UI design evaluation.")
     url = html_lib.escape(item.get("url") or "#")
@@ -149,28 +211,34 @@ def build_card_html(item: Dict[str, Any]) -> str:
 
     council_label = f"{len(council_models)} Reviewer{'s' if len(council_models) != 1 else ''}"
 
+    category = item.get("category") or "Design"
+    chip_class = "chip--primary"
+    if category.lower() in {"onboarding", "feed", "modal"}:
+        chip_class = "chip--orange"
+    elif category.lower() in {"navigation", "dashboard", "settings"}:
+        chip_class = "chip--purple"
+
     return f'''
-    <a class="canvas-card" href="{url}"
+    <a class="dial-card" href="{url}"
        data-title="{safe_title}"
        data-context="{safe_context}"
        data-crit-count="{crit_count}"
        data-score="{avg_score if avg_score is not None else 0}">
-      <div class="card-media">
+            <div class="card-copy">
+                <p class="card-number">CRITIQUE {item.get("position", 1):02d}</p>
+                <h2 class="card-title">{safe_title}</h2>
+                <p class="card-context">{safe_context}</p>
+                <div class="card-meta">
+                    {f'<span class="chip chip--pink">{crit_count} Critical</span>' if crit_count else ''}
+                      {f'<span class="chip chip--pink">{high_count} Major</span>' if high_count else ''}
+                      {f'<span class="chip chip--purple">{med_count} Moderate</span>' if med_count else ''}
+                    {f'<span class="chip chip--primary">Score {avg_score:.1f} / 5</span>' if avg_score is not None else ''}
+                    <span class="chip {chip_class}">{html_lib.escape(category)}</span>
+                </div>
+                <p class="card-date">{date_formatted} · {council_label}</p>
+            </div>
+            <div class="card-media">
         {media_html}
-        {score_pill_html}
-      </div>
-      <div class="card-content">
-        <div class="card-header-row">
-          <h2 class="card-title">{safe_title}</h2>
-          <span class="card-date">{date_formatted}</span>
-        </div>
-        <p class="card-context">{safe_context}</p>
-        <div class="card-footer">
-          <div class="card-tags">
-            {badges_rendered}
-          </div>
-          <span class="council-count">{council_label}</span>
-        </div>
       </div>
     </a>'''
 
@@ -196,10 +264,11 @@ def build_gallery(
         raise FileNotFoundError(f"Gallery template not found: {_GALLERY_TEMPLATE_PATH}")
     template_html = _GALLERY_TEMPLATE_PATH.read_text(encoding="utf-8")
 
-    # Discover conversations
+    # Discover local conversations first; local data remains useful during development.
     conversations = list_conversations(storage_dir=str(conv_dir))
     gallery_items: List[Dict[str, Any]] = []
     generated_verdicts: List[str] = []
+    seen_slugs: set[str] = set()
 
     for conv in conversations:
         conv_id = conv.get("id")
@@ -232,6 +301,7 @@ def build_gallery(
         verdict_path = verdicts_dir / filename
         verdict_path.write_text(html_page, encoding="utf-8")
         generated_verdicts.append(str(verdict_path))
+        seen_slugs.add(slug)
 
         # 2. Extract metrics
         avg_score, score_dims_count = parse_scorecard_metrics(verdict_markdown)
@@ -255,13 +325,38 @@ def build_gallery(
             "med_count": med_count,
             "low_count": low_count,
             "council": council_members,
+            "category": "Design",
             "url": f"verdicts/{filename}",
         })
+
+    # Published rows are the source of truth for GitHub Pages because local
+    # conversation JSON files are intentionally excluded from git. Explicit
+    # conversation directories stay isolated so unit tests and local fixtures
+    # remain deterministic.
+    if conversations_dir is None:
+        for record in fetch_published_verdicts():
+            item = published_item_to_gallery_item(record)
+            slug = item["slug"]
+            if not slug or slug in seen_slugs:
+                continue
+
+            published_html = fetch_published_html(record)
+            if published_html:
+                filename = f"{slug}.html"
+                verdict_path = verdicts_dir / filename
+                verdict_path.write_text(published_html, encoding="utf-8")
+                generated_verdicts.append(str(verdict_path))
+                item["url"] = f"verdicts/{filename}"
+
+            gallery_items.append(item)
+            seen_slugs.add(slug)
 
     # Sort items by created_at descending (newest first)
     gallery_items.sort(key=lambda x: x.get("created_at") or "", reverse=True)
 
     # 3. Generate cards HTML and replace in template
+    for position, item in enumerate(gallery_items, start=1):
+        item["position"] = position
     cards_html = "\n".join(build_card_html(item) for item in gallery_items)
     count_label = f"Showing {len(gallery_items)} verdict{'s' if len(gallery_items) != 1 else ''}"
 
