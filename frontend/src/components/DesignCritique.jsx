@@ -15,6 +15,13 @@ const SEVERITY_META = {
 };
 
 function pinTone(pin) {
+  // Figma 34:2 uses hand-placed red+blue rings independent of severity.
+  // Council may set pin.ring to override the severity-driven tone.
+  const ring = String(pin?.ring || '').toLowerCase();
+  if (ring === 'red')    return 'crit';
+  if (ring === 'blue')   return 'high';
+  if (ring === 'orange') return 'high';
+  if (ring === 'green')  return 'good';
   if (pin.category === 'strength') return 'good';
   return SEVERITY_META[pin.severity]?.tone || 'med';
 }
@@ -22,6 +29,17 @@ function pinTone(pin) {
 function sevLabel(pin) {
   if (pin.category === 'strength') return 'Strength';
   return SEVERITY_META[pin.severity]?.label || 'Note';
+}
+
+function categoryFromText(text) {
+  const t = String(text || '').toLowerCase();
+  for (const [needle, label] of [
+    ['onboard', 'Onboarding'], ['feed', 'Feed'], ['navig', 'Navigation'],
+    ['dash', 'Dashboard'], ['modal', 'Modal'], ['settings', 'Settings'],
+  ]) {
+    if (t.includes(needle)) return label;
+  }
+  return 'Design';
 }
 
 function InfoIcon() {
@@ -217,113 +235,193 @@ export default function DesignCritique({
     positionPopover(pinRefs.current[i]);
   };
 
-  // ── Full verdict two-column layout ───────────────────────────────────────
-  if (showVerdict) {
-    return (
-      <div className="dc-verdict-wrap" ref={wrapRef}>
-        <div ref={midGuideRef} className="dc-mid-guide" style={{ opacity: 0 }} aria-hidden="true" />
-        <div className="dc-verdict-left">
-          {image && (
-            <img ref={thumbRef} className="dc-verdict-thumb" src={image} alt="Design thumbnail" />
-          )}
-          <button
-            type="button"
-            className="btn-hide-verdict"
-            onClick={() => transitionTo(false)}
-          >
-            Hide verdict
-          </button>
+  // ── Full verdict two-column layout (Figma 34:196) ────────────────────────
+    const critCount = pins.filter((p) => p.category !== 'strength' && Number(p.severity) === 4).length;
+    const majorCount = pins.filter((p) => p.category !== 'strength' && Number(p.severity) === 3).length;
+    const moderateCount = pins.filter((p) => p.category !== 'strength' && Number(p.severity) === 2).length;
+    const categoryLabel = categoryFromText(`${title || ''} ${councilMembers?.category || ''}`);
 
-          <button
-            type="button"
-            className={`btn-verdict-info${showInfo ? ' is-open' : ''}`}
-            onClick={() => setShowInfo((v) => !v)}
-            aria-expanded={showInfo}
-          >
-            <InfoIcon /> Council details
-          </button>
-
-          {showInfo && (
-            <div className="dc-info-panel" role="dialog" aria-label="Design Critique Council">
-              <p className="dc-info-title">⛰️ Design Critique Council</p>
-              {members.length > 0 ? (
-                <ul className="dc-info-chips">
-                  {members.map((member) => (
-                    <li key={member} className="dc-info-chip">{member}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="dc-info-date">OpenRouter council models</p>
-              )}
-              <p className="dc-info-date">{`Generated ${generatedDate}`}</p>
+    if (showVerdict) {
+      return (
+        <div className="dc-wrap" ref={wrapRef}>
+          <p className="dc-eyebrow">Design Critique Council</p>
+          <h1 className="dc-page-title">{title || 'Design Critique'}</h1>
+          {verdict?.context && <p className="dc-page-context">{verdict.context}</p>}
+          <div className="dc-stage">
+            <div className="dc-canvas is-loading" id="dc-canvas">
+              <div className="dc-image-frame" id="dc-frame">
+                {image && (
+                  <img
+                    ref={bigImgRef}
+                    className="dc-image"
+                    id="dc-img"
+                    src={image}
+                    alt={title || 'Reviewed design'}
+                    draggable={false}
+                  />
+                )}
+                {!loading && hasPins && (
+                  <>
+                    <div className="dc-callouts" id="dc-callouts">
+                      {pins.map((pin, i) => (pin.callout && pin.callout.text ? (
+                        <div
+                          key={`c-${i}`}
+                          className={`dc-callout dc-callout--${pin.callout.variant || 'plain'}`}
+                          style={{ left: `${pin.callout.x ?? pin.x}%`, top: `${pin.callout.y ?? pin.y}%` }}
+                        >
+                          {pin.callout.text}
+                        </div>
+                      ) : null))}
+                    </div>
+                    {pins.map((pin, index) => (
+                      <button
+                        key={index}
+                        ref={(el) => { pinRefs.current[index] = el; }}
+                        type="button"
+                        className={`dc-pin dc-pin--${pinTone(pin)}${activeIndex === index ? ' is-active' : ''}`}
+                        style={{ left: `${pin.x}%`, top: `${pin.y}%`, animationDelay: `${index * 60}ms` }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectPin(index, e.currentTarget);
+                        }}
+                        aria-label={`${pin.title} — ${sevLabel(pin)}`}
+                        aria-pressed={activeIndex === index}
+                      >
+                        <span className="dc-pin-dot">{index + 1}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
             </div>
-          )}
-
-          <button
-            type="button"
-            className="btn-download-html"
-            onClick={exportVerdict}
-            disabled={exportState === 'loading'}
-          >
-            <DownloadIcon />
-            {exportState === 'loading' ? 'Downloading…' : 'Download HTML'}
-          </button>
-
-          {publishState === 'done' && publishUrl ? (
-            <div className="dc-publish-success-group">
-              <a
-                href={publishUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn-publish-web btn-publish-web--view"
-              >
-                <GlobeIcon /> View live verdict ↗
-              </a>
-              <button
-                type="button"
-                className="btn-copy-link"
-                onClick={() => {
-                  navigator.clipboard.writeText(publishUrl);
-                  setCopiedLink(true);
-                  setTimeout(() => setCopiedLink(false), 2000);
-                }}
-              >
-                {copiedLink ? '✓ Copied link!' : 'Copy public link'}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="btn-publish-web"
-              onClick={publishVerdict}
-              disabled={publishState === 'loading'}
-            >
-              <GlobeIcon />
-              {publishState === 'loading' ? 'Publishing to web…' : 'Publish to web'}
-            </button>
-          )}
-
-          {exportState === 'done' && exportResult && (
-            <div className="dc-export-ok">
-              <strong>Downloaded {exportResult}.</strong>
-            </div>
-          )}
-          {exportState === 'error' && (
-            <div className="dc-export-err">{exportError}</div>
-          )}
-          {publishState === 'error' && (
-            <div className="dc-export-err">{publishError}</div>
-          )}
-        </div>
-
-        <div className="dc-verdict-right" ref={rightColRef}>
-          <div className="dc-verdict-body">
-            <MarkdownRenderer html={verdict?.response_html} fallback={verdict?.response || ''} />
+            <aside className="dc-rail" aria-label="Verdict summary and actions">
+              <div className="dc-rail-block">
+                <p className="dc-rail-title">{title || 'Design Critique'}</p>
+                <div className="dc-tag-row">
+                  {critCount > 0     && <span className="dc-tag dc-tag--crit">{critCount} critical</span>}
+                  {majorCount > 0   && <span className="dc-tag dc-tag--high">{majorCount} major</span>}
+                  {moderateCount > 0 && <span className="dc-tag dc-tag--med">{moderateCount} moderate</span>}
+                  <span className="dc-tag dc-tag--cat">{categoryLabel}</span>
+                </div>
+                <button
+                  type="button"
+                  className={`dc-action${showInfo ? ' is-open' : ''}`}
+                  onClick={() => setShowInfo((v) => !v)}
+                  aria-expanded={showInfo}
+                >
+                  <InfoIcon /> Council details
+                </button>
+                {showInfo && (
+                  <div className="dc-info-panel" role="dialog" aria-label="Design Critique Council">
+                    <p className="dc-info-title">Design Critique Council</p>
+                    {members.length > 0 ? (
+                      <ul className="dc-info-chips">
+                        {members.map((member) => (
+                          <li key={member} className="dc-info-chip">{member}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="dc-info-date">OpenRouter council models</p>
+                    )}
+                    <p className="dc-info-date">{`Generated ${generatedDate}`}</p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  className="dc-action"
+                  onClick={exportVerdict}
+                  disabled={exportState === 'loading'}
+                >
+                  <DownloadIcon />
+                  {exportState === 'loading' ? 'Downloading…' : 'Download HTML'}
+                </button>
+                {publishState === 'done' && publishUrl ? (
+                  <>
+                    <a href={publishUrl} target="_blank" rel="noopener noreferrer" className="dc-action">
+                      <GlobeIcon /> View live verdict ↗
+                    </a>
+                    <button
+                      type="button"
+                      className="dc-action"
+                      onClick={() => {
+                        navigator.clipboard.writeText(publishUrl);
+                        setCopiedLink(true);
+                        setTimeout(() => setCopiedLink(false), 2000);
+                      }}
+                    >
+                      {copiedLink ? '✓ Copied link!' : 'Copy public link'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="dc-action dc-action--primary"
+                    onClick={publishVerdict}
+                    disabled={publishState === 'loading'}
+                  >
+                    <GlobeIcon />
+                    {publishState === 'loading' ? 'Publishing to web…' : 'Publish to the internet'}
+                  </button>
+                )}
+                {exportState === 'done' && exportResult && (
+                  <p className="dc-info-date">Downloaded {exportResult}.</p>
+                )}
+                {exportState === 'error' && <p className="dc-export-err">{exportError}</p>}
+                {publishState === 'error' && <p className="dc-export-err">{publishError}</p>}
+              </div>
+            </aside>
           </div>
+          <section className="dc-verdict" aria-label="Full verdict" ref={rightColRef}>
+            <MarkdownRenderer html={verdict?.response_html} fallback={verdict?.response || ''} />
+          </section>
+          <footer>
+            <span className="seal">⛰️ LLM Design Council</span>
+            {verdict?.context && (
+              <p className="footer-context">
+                <span className="context-label">Context</span>{verdict.context}
+              </p>
+            )}
+            {members.length > 0 && (
+              <div className="footer-council">
+                {members.map((member) => (
+                  <span key={member} className="footer-chip">{member}</span>
+                ))}
+              </div>
+            )}
+            <p>{`Generated ${generatedDate}`}</p>
+          </footer>
+
+          {/* Floating popover still works in verdict view. */}
+          {popoverOpen && activePin && createPortal(
+            <div
+              className="dc-popover is-open"
+              style={{ top: popoverPos.top, left: popoverPos.left }}
+              role="dialog"
+              aria-label="Annotation detail"
+            >
+              <div className="dc-popover-bar" />
+              <div className="dc-popover-body">
+                <button className="dc-popover-close" onClick={() => setActiveIndex(null)} aria-label="Close">×</button>
+                <div className="dc-badge">
+                  <span className="dc-badge-num">{activeIndex + 1}</span>
+                  <span className={`dc-badge-label dc-badge-label--${pinTone(activePin)}`}>{sevLabel(activePin)}</span>
+                </div>
+                <h3 className="dc-detail-title">{activePin.title}</h3>
+                {activePin.principle && <p className="dc-detail-principle">{activePin.principle}</p>}
+                {activePin.comment   && <p className="dc-detail-comment">{activePin.comment}</p>}
+                {pins.length > 1 && (
+                  <div className="dc-detail-nav">
+                    <button className="btn" onClick={() => navigatePin(-1)}>‹ Previous</button>
+                    <button className="btn" onClick={() => navigatePin(1)}>Next ›</button>
+                  </div>
+                )}
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
   // ── Main annotated-image view ─────────────────────────────────────────────
   return (

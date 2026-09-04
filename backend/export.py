@@ -39,8 +39,16 @@ _PIN_TONES = {
     "4": "crit",
 }
 
+# Optional pin ring color (overrides severity tone). Figma 34:2 uses hand-placed
+# red+blue circles independent of severity. Council may set this; absent -> fall
+# back to severity tone. Ponytail: extra key on pin, no new enum layer.
+_RING_OVERRIDE = {"red": "crit", "blue": "high", "orange": "high", "green": "good"}
+
 
 def _pin_tone(pin: dict) -> str:
+    ring = str(pin.get("ring") or "").lower()
+    if ring in _RING_OVERRIDE:
+        return _RING_OVERRIDE[ring]
     if pin.get("category") == "strength":
         return "good"
     return _PIN_TONES.get(str(pin.get("severity", 2)), "med")
@@ -98,6 +106,10 @@ def render_verdict_html(
     verdict_html = render_markdown(verdict_markdown, sectioned=True)
 
     safe_title = html_lib.escape(title or "Design Critique")
+    page_context = (context or "").strip() or "Critique this design."
+    safe_page_context = html_lib.escape(page_context)
+    council_name = "Design Critique Council"
+    safe_council_name = html_lib.escape(council_name)
     primary_image = html_lib.escape(
         image_data_url or "",
         quote=True,
@@ -106,6 +118,7 @@ def render_verdict_html(
         primary_image = ""
     pins = annotations or []
     pins_json = _safe_script_json(pins)
+    callouts_json = _safe_script_json([p for p in pins if p.get("callout")])
 
     # Build the inline pin HTML (rendered server-side for no-JS graceful fallback)
     pins_html = ""
@@ -124,6 +137,44 @@ def render_verdict_html(
             f'<span class="dc-pin-dot">{i + 1}</span>'
             f'</button>'
         )
+
+    # Optional callout layer (Figma 34:2): structured notes anchored to pins.
+    # Schema: { text, x, y, variant: "quote"|"note"|"plain" }.
+    callouts_html = ""
+    for pin in pins:
+        c = pin.get("callout")
+        if not isinstance(c, dict) or not c.get("text"):
+            continue
+        cx = _safe_coordinate(c.get("x", pin.get("x")))
+        cy = _safe_coordinate(c.get("y", pin.get("y")))
+        variant = html_lib.escape(str(c.get("variant") or "plain"))
+        callouts_html += (
+            f'<div class="dc-callout dc-callout--{variant}" '
+            f'style="left:{cx:.2f}%;top:{cy:.2f}%;">'
+            f'{html_lib.escape(c.get("text", ""))}</div>'
+        )
+
+    # Severity tag pills for the rail (Figma 34:196).
+    crit_count = sum(1 for p in pins if str(p.get("severity")) == "4")
+    high_count = sum(1 for p in pins if str(p.get("severity")) == "3")
+    med_count = sum(1 for p in pins if str(p.get("severity")) == "2")
+    pills = []
+    if crit_count:
+        pills.append(f'<span class="dc-tag dc-tag--crit">{crit_count} critical</span>')
+    if high_count:
+        pills.append(f'<span class="dc-tag dc-tag--high">{high_count} major</span>')
+    if med_count:
+        pills.append(f'<span class="dc-tag dc-tag--med">{med_count} moderate</span>')
+    # Category pill: heuristic from title/context (Figma 34:196 always shows one).
+    category_label: Optional[str] = None
+    for needle, label in (("onboard", "Onboarding"), ("feed", "Feed"), ("navig", "Navigation"), ("dash", "Dashboard"), ("modal", "Modal"), ("settings", "Settings")):
+        if needle in (title or "").lower() or needle in (context or "").lower():
+            category_label = label
+            break
+    if not category_label:
+        category_label = "Design"
+    pills.append(f'<span class="dc-tag dc-tag--cat">{html_lib.escape(category_label)}</span>')
+    tag_pills_html = "".join(pills)
 
     pin_count = len(pins)
     hint_str = (
@@ -149,13 +200,17 @@ def render_verdict_html(
     template = _TEMPLATE_PATH.read_text(encoding="utf-8")
     replacements = {
         "__TITLE__": safe_title,
+        "__COUNCIL_NAME__": safe_council_name,
+        "__PAGE_CONTEXT__": safe_page_context,
         "__IMG_SRC__": primary_image,
         "__PINS_HTML__": pins_html,
         "__PINS_JSON__": pins_json,
+        "__CALLOUTS_HTML__": callouts_html,
         "__VERDICT_JSON__": _safe_script_json(verdict_html),
         "__HINT__": hint_str,
         "__CONTEXT_HTML__": context_html,
         "__FOOTER_CHIPS__": footer_chips_html,
+        "__TAG_PILLS_HTML__": tag_pills_html,
         "__DATELINE__": f"Generated {generated}",
     }
     # Replace only template tokens. A value containing another token-like

@@ -155,92 +155,52 @@ def format_iso_date(iso_str: Optional[str]) -> str:
 
 
 def build_card_html(item: Dict[str, Any]) -> str:
-    """Generate one fixed-viewport watch-dial item."""
+    """Generate one gallery card (Figma 34:309 — image + body + tag pills)."""
     safe_title = html_lib.escape(item.get("title") or "Design Critique")
     safe_context = html_lib.escape(item.get("context") or "Visual UX/UI design evaluation.")
     url = html_lib.escape(item.get("url") or "#")
-    img_src = item.get("image")
+    img_src = item.get("image") or ""
     avg_score = item.get("avg_score")
     crit_count = item.get("crit_count", 0)
     high_count = item.get("high_count", 0)
     med_count = item.get("med_count", 0)
     annotation_count = item.get("annotation_count", 0)
-    council_models = item.get("council", [])
-    date_formatted = format_iso_date(item.get("created_at"))
-
-    # Media element
-    if img_src and img_src.startswith("data:image"):
-        media_html = f'<img src="{img_src}" alt="{safe_title}" class="card-img" loading="lazy" />'
-    else:
-        media_html = '''
-        <div class="card-img-placeholder">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-            <polyline points="21 15 16 10 5 21"></polyline>
-          </svg>
-          <span>No Screenshot</span>
-        </div>'''
-
-    # Score Pill
-    score_pill_html = ""
-    if avg_score is not None:
-        score_class = "score-num"
-        if avg_score < 3.0:
-            score_class = "score-num--crit"
-        elif avg_score < 4.0:
-            score_class = "score-num--warn"
-        score_pill_html = f'''
-        <div class="score-badge">
-          <span>Score</span>
-          <span class="{score_class}">{avg_score:.1f} / 5</span>
-        </div>'''
-
-    # Badges
-    badges_html = []
-    if crit_count > 0:
-        badges_html.append(f'<span class="tag-badge tag--crit">{crit_count} Critical</span>')
-    if high_count > 0:
-        badges_html.append(f'<span class="tag-badge tag--high">{high_count} Major</span>')
-    if med_count > 0:
-        badges_html.append(f'<span class="tag-badge tag--med">{med_count} Moderate</span>')
-    if annotation_count > 0 and not (crit_count or high_count or med_count):
-        badges_html.append(f'<span class="tag-badge tag--pins">{annotation_count} Pins</span>')
-
-    badges_rendered = "".join(badges_html)
-
-    council_label = f"{len(council_models)} Reviewer{'s' if len(council_models) != 1 else ''}"
-
     category = item.get("category") or "Design"
-    chip_class = "chip--primary"
-    if category.lower() in {"onboarding", "feed", "modal"}:
-        chip_class = "chip--orange"
-    elif category.lower() in {"navigation", "dashboard", "settings"}:
-        chip_class = "chip--purple"
+    position = item.get("position", 1)
+    iso_date = item.get("created_at") or ""
+    short_date = format_iso_date(iso_date)
 
-    return f'''
-    <a class="dial-card" href="{url}"
-       data-title="{safe_title}"
-       data-context="{safe_context}"
-       data-crit-count="{crit_count}"
-       data-score="{avg_score if avg_score is not None else 0}">
-            <div class="card-copy">
-                <p class="card-number">CRITIQUE {item.get("position", 1):02d}</p>
-                <h2 class="card-title">{safe_title}</h2>
-                <p class="card-context">{safe_context}</p>
-                <div class="card-meta">
-                    {f'<span class="chip chip--pink">{crit_count} Critical</span>' if crit_count else ''}
-                      {f'<span class="chip chip--pink">{high_count} Major</span>' if high_count else ''}
-                      {f'<span class="chip chip--purple">{med_count} Moderate</span>' if med_count else ''}
-                    {f'<span class="chip chip--primary">Score {avg_score:.1f} / 5</span>' if avg_score is not None else ''}
-                    <span class="chip {chip_class}">{html_lib.escape(category)}</span>
-                </div>
-                <p class="card-date">{date_formatted} · {council_label}</p>
-            </div>
-            <div class="card-media">
-        {media_html}
-      </div>
-    </a>'''
+    if img_src:
+        media_html = f'<img src="{html_lib.escape(img_src)}" alt="{safe_title}" loading="lazy" />'
+    else:
+        media_html = '<div class="placeholder">No screenshot</div>'
+
+    pills = []
+    if crit_count:
+        pills.append(f'<span class="tag tag--crit">{crit_count} critical</span>')
+    if high_count:
+        pills.append(f'<span class="tag tag--high">{high_count} major</span>')
+    if med_count:
+        pills.append(f'<span class="tag tag--med">{med_count} moderate</span>')
+    if annotation_count and not (crit_count or high_count or med_count):
+        pills.append(f'<span class="tag tag--pin">{annotation_count} pins</span>')
+    pills.append(f'<span class="tag tag--cat">{html_lib.escape(category)}</span>')
+    tags_html = "".join(pills)
+
+    date_html = f'<p class="card-date">{html_lib.escape(short_date)}</p>' if short_date else ""
+
+    return (
+        f'<a class="card" href="{url}" '
+        f'data-title="{safe_title}" '
+        f'data-date="{html_lib.escape(iso_date)}">'
+        f'<div class="card-img-wrap">{media_html}</div>'
+        f'<div class="card-body">'
+        f'<h3 class="card-title">{safe_title}</h3>'
+        f'<p class="card-context">{safe_context}</p>'
+        f'<div class="card-meta">{tags_html}</div>'
+        f'{date_html}'
+        f'</div></a>'
+    )
 
 
 def build_gallery(
@@ -358,10 +318,8 @@ def build_gallery(
     for position, item in enumerate(gallery_items, start=1):
         item["position"] = position
     cards_html = "\n".join(build_card_html(item) for item in gallery_items)
-    count_label = f"Showing {len(gallery_items)} verdict{'s' if len(gallery_items) != 1 else ''}"
 
     final_index_html = template_html.replace("__GALLERY_CARDS_HTML__", cards_html)
-    final_index_html = final_index_html.replace("__COUNT_LABEL__", count_label)
 
     index_path = out_dir / "index.html"
     index_path.write_text(final_index_html, encoding="utf-8")
