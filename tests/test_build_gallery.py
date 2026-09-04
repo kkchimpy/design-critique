@@ -88,10 +88,10 @@ Overall solid design.
         card_html = build_card_html(item)
         self.assertIn("Checkout Flow &lt;script&gt;alert(1)&lt;/script&gt;", card_html)
         self.assertNotIn("<script>alert(1)</script>", card_html)
-        self.assertIn("2 Critical", card_html)
-        self.assertIn("1 Major", card_html)
-        self.assertIn("3.2 / 5", card_html)
-        self.assertIn("2 Reviewers", card_html)
+        self.assertIn("2 critical", card_html)
+        self.assertIn("1 major", card_html)
+        self.assertNotIn("3.2 / 5", card_html)
+        self.assertNotIn("2 Reviewers", card_html)
         self.assertIn("verdicts/12345678.html", card_html)
 
     def test_build_gallery_generates_index_and_verdicts(self):
@@ -152,7 +152,7 @@ Overall solid design.
             index_content = index_path.read_text(encoding="utf-8")
             self.assertIn("Onboarding Design Review", index_content)
             self.assertIn(f"verdicts/{expected_slug}.html", index_content)
-            self.assertIn("1 Critical", index_content)
+            self.assertIn("1 critical", index_content)
 
             # Check manifest contents
             manifest_content = json.loads(manifest_path.read_text(encoding="utf-8"))

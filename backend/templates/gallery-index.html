@@ -10,240 +10,231 @@
 :root {
   --canvas: #f6f5f4;
   --surface: #ffffff;
-  --ink: #000000;
-  --secondary: #31302e;
-  --muted: #615d59;
+  --ink: #0a0a0a;
+  --body: #3a3a3a;
+  --muted: #465b6b;
   --faint: #a39e98;
   --hairline: #e6e6e6;
+  --hairline-soft: rgba(88,121,143,.22);
   --primary: #0075de;
   --primary-active: #005bab;
-  --purple: #d6b6f6;
+  --purple: #8552f6;
+  --purple-deep: #391c57;
   --pink: #ff64c8;
   --orange: #dd5b00;
+  --orange-deep: #793400;
   --teal: #2a9d99;
   --green: #1aae39;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
-  --ease: cubic-bezier(.16, 1, .3, 1);
-  --shadow-soft: 0 0.175px 1.041px rgba(0,0,0,.01), 0 .8px 2.925px rgba(0,0,0,.02), 0 2.025px 7.847px rgba(0,0,0,.027), 0 4px 18px rgba(0,0,0,.04);
+  --red: #d13a62;
+  --yellow: #c9a227;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 9999px;
+  --shadow-soft: 0 .175px 1.041px rgba(0,0,0,.01), 0 .8px 2.925px rgba(0,0,0,.02), 0 2.025px 7.847px rgba(0,0,0,.027), 0 4px 18px rgba(0,0,0,.04);
+  --shadow-lift: 0 2px 8px rgba(0,0,0,.02), 0 12px 34px rgba(0,0,0,.07);
 }
-html, body { margin: 0; min-width: 320px; min-height: 100%; background: var(--canvas); color: var(--ink); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-body { overflow-x: hidden; }
-a { color: inherit; }
-.app-shell { min-height: 100vh; display: flex; }
-.rail { position: fixed; inset: 0 auto 0 0; z-index: 20; width: 48px; padding: 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--canvas); border-right: 1px dotted var(--muted); }
-.brand { width: 32px; height: 32px; display: grid; place-items: center; color: var(--primary); text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: -.2px; }
-.rail-search { width: 24px; height: 24px; display: grid; place-items: center; border: 0; border-radius: var(--radius-sm); background: var(--surface); color: var(--primary); cursor: pointer; }
-.rail-search svg { width: 14px; height: 14px; }
-.viewport { width: calc(100% - 48px); min-height: 100vh; margin-left: 48px; overflow: hidden; }
-.dial { min-height: 100vh; padding: clamp(92px, 13vh, 144px) clamp(20px, 5vw, 80px) clamp(104px, 13vh, 144px); display: flex; flex-direction: column; align-items: center; }
-.dial-header { width: min(720px, 100%); text-align: center; margin-bottom: 24px; }
-.dial-kicker { margin: 0 0 10px; color: var(--primary); font-size: 12px; font-weight: 600; letter-spacing: .125px; }
-.dial-title { margin: 0; font-size: clamp(28px, 4vw, 42px); line-height: 1.1; letter-spacing: -1px; font-weight: 700; }
-.dial-subtitle { margin: 10px auto 0; max-width: 520px; color: var(--secondary); font-size: 15px; line-height: 1.5; }
-.dial-window { position: relative; width: min(960px, 100%); height: clamp(410px, 61vh, 620px); overflow: hidden; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: rgba(255,255,255,.26); box-shadow: var(--shadow-soft); }
-.dial-window::before, .dial-window::after { content: ''; position: absolute; left: 0; right: 0; z-index: 4; pointer-events: none; }
-.dial-window::before { top: 0; height: 18%; background: linear-gradient(var(--canvas), transparent); }
-.dial-window::after { bottom: 0; height: 22%; background: linear-gradient(transparent, var(--canvas)); }
-  .dial-track { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 24px; transform: translateY(0); will-change: transform; transition: transform .76s var(--ease); }
-.dial-card { width: min(720px, 100%); min-height: 390px; flex: 0 0 390px; display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 32px; align-items: center; padding: 32px; background: var(--surface); border: 1px solid var(--hairline); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); opacity: .2; filter: saturate(.65); transform: scale(.88); transition: opacity .76s var(--ease), transform .76s var(--ease), filter .76s var(--ease), box-shadow .76s var(--ease); }
-.dial-card.is-near { opacity: .54; transform: scale(.95); }
-.dial-card.is-active { opacity: 1; filter: none; transform: scale(1); box-shadow: 0 2px 8px rgba(0,0,0,.02), 0 12px 34px rgba(0,0,0,.07); }
-.card-copy { min-width: 0; }
-.card-number { margin: 0 0 18px; color: var(--primary); font-size: 12px; font-weight: 600; letter-spacing: .125px; }
-.card-title { margin: 0; font-size: clamp(24px, 3.5vw, 38px); line-height: 1.08; letter-spacing: -1px; font-weight: 700; }
-.card-context { margin: 14px 0 22px; color: var(--secondary); font-size: 16px; line-height: 1.5; display: -webkit-box; display: box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.card-date { margin-top: 18px; color: var(--muted); font-size: 13px; }
-.chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 10px; border-radius: var(--radius-full); font-size: 12px; line-height: 1.33; font-weight: 600; }
-.chip--primary { background: rgba(0,117,222,.1); color: var(--primary-active); }
-.chip--pink { background: rgba(255,100,200,.2); color: #391c57; }
-.chip--purple { background: rgba(214,182,246,.5); color: #391c57; }
-.chip--orange { background: rgba(221,91,0,.16); color: #793400; }
-.card-media { width: 240px; height: 300px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-md); background: var(--canvas); }
-.card-media img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.card-media-empty { color: var(--muted); font-size: 13px; }
-.dial-controls { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
-.dial-button { min-width: 44px; height: 36px; padding: 0 14px; border: 1px solid var(--hairline); border-radius: var(--radius-md); background: var(--surface); color: var(--ink); font: 500 13px inherit; cursor: pointer; transition: background .16s ease, color .16s ease, border-color .16s ease; }
-.dial-button:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
-.dial-button:disabled { opacity: .42; cursor: default; }
-.dial-counter { min-width: 56px; color: var(--muted); font-size: 13px; text-align: center; font-variant-numeric: tabular-nums; }
-.dial-progress { width: min(260px, 55vw); height: 3px; margin-top: 18px; background: #dedbd8; border-radius: var(--radius-full); overflow: hidden; }
-.dial-progress span { display: block; height: 100%; background: var(--primary); transform-origin: left center; transition: transform .76s var(--ease); }
-.dial-empty { min-height: 100vh; display: grid; place-items: center; color: var(--muted); font-size: 16px; }
-@media (max-width: 700px) { .rail { width: 40px; padding-inline: 6px; } .viewport { width: calc(100% - 40px); margin-left: 40px; } .dial { padding-inline: 12px; } .dial-window { height: 520px; } .dial-track { padding: 24px 12px; gap: 12px; } .dial-card { grid-template-columns: 1fr; gap: 18px; padding: 20px; min-height: 470px; flex-basis: 470px; } .card-media { width: 100%; height: 180px; order: -1; } .card-title { font-size: 28px; } .dial-card.is-near { transform: scale(.94); } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+html, body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+.viewport { width: 100%; max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; }
+
+/* ── Card grid (Figma 34:309) ───────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.card:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.card-img-wrap { position: relative; aspect-ratio: 4/3; background: var(--canvas); overflow: hidden; }
+.card-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-img-wrap .placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: var(--faint); font-size: 13px; }
+.card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.card-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-context {
+  margin: 0;
+  color: var(--body);
+  font-size: 13px;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.card-date { margin: 0; color: var(--muted); font-size: 12px; }
+
+/* ── Tag pills (Figma 34:196 palette) ──────────────────────────────────── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1;
+}
+.tag--crit { background: rgba(221,91,0,.16); color: var(--orange-deep); }
+.tag--high { background: rgba(255,100,200,.20); color: var(--purple-deep); }
+.tag--med  { background: rgba(214,182,246,.50); color: var(--purple-deep); }
+.tag--pin  { background: rgba(0,117,222,.10); color: var(--primary-active); }
+.tag--cat  { background: var(--canvas); color: var(--body); border: 1px solid var(--hairline); }
+
+/* ── Empty / loading states ─────────────────────────────────────────────── */
+.empty {
+  margin-top: 48px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--muted);
+  border: 1px dashed var(--hairline);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+}
+.empty h2 { margin: 0 0 6px; color: var(--ink); font-size: 18px; font-weight: 600; }
+
+@media (max-width: 640px) {
+  .viewport { padding: 16px 16px 32px; }
+  .grid { grid-template-columns: 1fr; gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
 </style>
 </head>
 <body>
-<div class="app-shell"><aside class="rail"><a class="brand" href="./" aria-label="Design Council">dc.</a><button class="rail-search" type="button" aria-label="Focus current critique"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg></button></aside><main class="viewport"><section class="dial" aria-label="Published design critiques"><header class="dial-header"><p class="dial-kicker">DESIGN COUNCIL</p><h1 class="dial-title">Critiques, in focus.</h1><p class="dial-subtitle">Scroll through published design reviews. The active critique stays on the dial; the others recede until you bring them forward.</p></header><div class="dial-window" id="dialWindow"><div class="dial-track" id="dialTrack">__GALLERY_CARDS_HTML__</div></div><nav class="dial-controls" aria-label="Critique navigation"><button class="dial-button" id="dialPrevious" type="button">Previous</button><span class="dial-counter" id="dialCounter">0 / 0</span><button class="dial-button" id="dialNext" type="button">Next</button></nav><div class="dial-progress" aria-hidden="true"><span id="dialProgress"></span></div></section></main></div>
+<main class="viewport">
+  <section class="grid" id="grid" aria-label="Published design critiques">__GALLERY_CARDS_HTML__</section>
+  <div class="empty" id="empty" hidden>
+    <h2>No critiques published yet</h2>
+    <p>Once someone publishes a verdict, it'll appear here.</p>
+  </div>
+</main>
 <script>
 (function () {
   'use strict';
-  const SUPABASE_URL = 'https://ybnptwflkjxqhuzyrdky.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlibnB0d2Zsa2p4cWh1enlyZGt5Iiwicm9sIjoiYW5vbiIsImlhdCI6MTc4NzY0NTcxNSwiZXhwIjoyMTAzMjIxNzE1fQ.uhPZf5qua6JzVVreuDH0fAeOaXSE96kCqHbsITId3iE';
-  const track = document.getElementById('dialTrack');
-  const windowEl = document.getElementById('dialWindow');
-  const cards = Array.from(track.querySelectorAll('.dial-card'));
-  const counter = document.getElementById('dialCounter');
-  const progress = document.getElementById('dialProgress');
-  const previous = document.getElementById('dialPrevious');
-  const next = document.getElementById('dialNext');
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let active = 0;
-  let startY = 0;
-  let lastWheel = 0;
+  var SUPABASE_URL = 'https://ybnptwflkjxqhuzyrdky.supabase.co';
+  var SUPABASE_ANON = 'eyJhbG...d3iE';
+  var grid = document.getElementById('grid');
+  var empty = document.getElementById('empty');
 
   function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, (character) => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-    }[character]));
+    return String(value ?? '').replace(/[&<>"']/g, function (character) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character];
+    });
   }
 
-  function remoteCard(record, position) {
-    const category = record.category || 'Design';
-    const categoryClass = category.toLowerCase() === 'onboarding' ? 'chip--orange' : 'chip--primary';
-    const url = record.html_url || '#';
-    const image = record.image_url
-      ? `<img src="${escapeHtml(record.image_url)}" alt="${escapeHtml(record.title || 'Design critique')}" loading="lazy">`
-      : '<span class="card-media-empty">No screenshot</span>';
-    return `<a class="dial-card" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">
-      <div class="card-copy">
-        <p class="card-number">CRITIQUE ${String(position).padStart(2, '0')}</p>
-        <h2 class="card-title">${escapeHtml(record.title || 'Design Critique')}</h2>
-        <p class="card-context">${escapeHtml(record.context || 'Visual UX/UI design evaluation.')}</p>
-        <div class="card-meta">
-          ${record.crit_count ? `<span class="chip chip--pink">${record.crit_count} Critical</span>` : ''}
-          ${record.high_count ? `<span class="chip chip--pink">${record.high_count} Major</span>` : ''}
-          ${record.med_count ? `<span class="chip chip--purple">${record.med_count} Moderate</span>` : ''}
-          ${record.avg_score != null ? `<span class="chip chip--primary">Score ${Number(record.avg_score).toFixed(1)} / 5</span>` : ''}
-          <span class="chip ${categoryClass}">${escapeHtml(category)}</span>
-        </div>
-        <p class="card-date">${escapeHtml(record.created_at || '')} · ${Array.isArray(record.council) ? record.council.length : 0} reviewers</p>
-      </div>
-      <div class="card-media">${image}</div>
-    </a>`;
+  function tagHtml(item) {
+    var out = '';
+    if (item.crit_count) out += '<span class="tag tag--crit">' + item.crit_count + ' critical</span>';
+    if (item.high_count) out += '<span class="tag tag--high">' + item.high_count + ' major</span>';
+    if (item.med_count)  out += '<span class="tag tag--med">'  + item.med_count  + ' moderate</span>';
+    if (item.annotation_count && !(item.crit_count || item.high_count || item.med_count)) {
+      out += '<span class="tag tag--pin">' + item.annotation_count + ' pins</span>';
+    }
+    out += '<span class="tag tag--cat">' + escapeHtml(item.category || 'Design') + '</span>';
+    return out;
+  }
+
+  function cardHtml(item) {
+    var img = item.image
+      ? '<img src="' + escapeHtml(item.image) + '" alt="' + escapeHtml(item.title || 'Design critique') + '" loading="lazy" />'
+      : '<div class="placeholder">No screenshot</div>';
+    var url = escapeHtml(item.url || '#');
+    var date = item.date ? '<p class="card-date">' + escapeHtml(item.date) + '</p>' : '';
+    return '<a class="card" href="' + url + '">' +
+      '<div class="card-img-wrap">' + img + '</div>' +
+      '<div class="card-body">' +
+        '<h3 class="card-title">' + escapeHtml(item.title || 'Design Critique') + '</h3>' +
+        '<p class="card-context">' + escapeHtml(item.context || 'Visual UX/UI design evaluation.') + '</p>' +
+        '<div class="card-meta">' + tagHtml(item) + '</div>' +
+        date +
+      '</div>' +
+    '</a>';
+  }
+
+  /* Initial render: server already injected cards via __GALLERY_CARDS_HTML__.
+     We only need to hydrate any extra records published after build time. */
+  function collectServerCards() {
+    var nodes = Array.from(grid.querySelectorAll('.card'));
+    nodes.forEach(function (node, i) {
+      if (!node.dataset.title) {
+        var t = node.querySelector('.card-title')?.textContent || '';
+        node.dataset.title = t.trim();
+      }
+      node.dataset.position = String(i + 1);
+    });
+  }
+
+  function recordToItem(record, position) {
+    var annotations = Array.isArray(record.annotations) ? record.annotations : [];
+    return {
+      title: record.title || 'Design Critique',
+      context: record.context || 'Visual UX/UI design evaluation.',
+      url: record.html_url || '#',
+      image: record.image_url || '',
+      crit_count: Number(record.crit_count || 0),
+      high_count: Number(record.high_count || 0),
+      med_count: Number(record.med_count || 0),
+      annotation_count: annotations.length,
+      category: record.category || 'Design',
+      date: record.created_at ? new Date(record.created_at).toISOString().slice(0, 10) : '',
+      position: position,
+    };
   }
 
   async function hydratePublishedCritiques() {
     try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/verdicts?select=*&order=created_at.desc&apikey=${SUPABASE_ANON}`);
+      var response = await fetch(SUPABASE_URL + '/rest/v1/verdicts?select=*&order=created_at.desc&apikey=' + SUPABASE_ANON);
       if (!response.ok) return;
-      const records = await response.json();
+      var records = await response.json();
       if (!Array.isArray(records) || !records.length) return;
-      const known = new Set(cards.map((card) => card.querySelector('.card-title')?.textContent));
-      const added = records.filter((record) => !known.has(record.title)).map((record, index) => remoteCard(record, cards.length + index + 1));
-      if (!added.length) return;
-      track.insertAdjacentHTML('beforeend', added.join(''));
-      cards.push(...Array.from(track.querySelectorAll('.dial-card')).slice(-added.length));
-      render();
+      var known = new Set(Array.from(grid.querySelectorAll('.card')).map(function (n) { return (n.dataset.title || '').trim(); }));
+      var position = grid.querySelectorAll('.card').length;
+      records.forEach(function (record) {
+        if (known.has((record.title || '').trim())) return;
+        position += 1;
+        grid.insertAdjacentHTML('beforeend', cardHtml(recordToItem(record, position)));
+      });
     } catch (error) {
       console.warn('Published critique sync failed', error);
+    } finally {
+      empty.hidden = grid.children.length > 0;
     }
   }
 
-  function stepSize() {
-    const card = cards[0];
-    if (!card) return 0;
-    return card.getBoundingClientRect().height + 18;
-  }
-
-  function normalizeRemoteRecord(record) {
-    return {
-      ...record,
-      image: record.image || record.image_url || '',
-      url: record.url || record.html_url || '#',
-      category: record.category || 'Design',
-      high_count: Number(record.high_count || 0),
-      med_count: Number(record.med_count || 0),
-      crit_count: Number(record.crit_count || 0),
-    };
-  }
-
-  function buildRemoteCard(record, position) {
-    const item = normalizeRemoteRecord(record);
-    const card = document.createElement('a');
-    card.className = 'dial-card';
-    card.href = item.url;
-    card.target = '_blank';
-    card.rel = 'noopener noreferrer';
-    card.innerHTML = `
-      <div class="card-copy">
-        <p class="card-number">CRITIQUE ${String(position).padStart(2, '0')}</p>
-        <h2 class="card-title">${escapeHtml(item.title || 'Design Critique')}</h2>
-        <p class="card-context">${escapeHtml(item.context || 'Visual UX/UI design evaluation.')}</p>
-        <div class="card-meta">
-          ${item.crit_count ? `<span class="chip chip--pink">${item.crit_count} Critical</span>` : ''}
-          ${item.high_count ? `<span class="chip chip--pink">${item.high_count} major</span>` : ''}
-          ${item.med_count ? `<span class="chip chip--purple">${item.med_count} moderate</span>` : ''}
-          <span class="chip chip--primary">${escapeHtml(item.category)}</span>
-        </div>
-        <p class="card-date">${escapeHtml(item.created_at || '')}</p>
-      </div>
-      <div class="card-media">${item.image ? `<img src="${escapeAttribute(item.image)}" alt="${escapeAttribute(item.title || 'Design critique')}" loading="lazy">` : '<span class="card-media-empty">No screenshot</span>'}</div>`;
-    return card;
-  }
-
-  function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[character]));
-  }
-
-  function escapeAttribute(value) {
-    return escapeHtml(value);
-  }
-
-  function render() {
-    if (!cards.length) return;
-    const offset = (windowEl.clientHeight - cards[0].getBoundingClientRect().height) / 2;
-    track.style.transform = `translateY(${offset - active * stepSize()}px)`;
-    cards.forEach((card, index) => {
-      card.classList.toggle('is-active', index === active);
-      card.classList.toggle('is-near', Math.abs(index - active) === 1);
-      card.setAttribute('aria-current', index === active ? 'true' : 'false');
-    });
-    counter.textContent = `${active + 1} / ${cards.length}`;
-    progress.style.transform = `scaleX(${cards.length > 1 ? (active + 1) / cards.length : 1})`;
-    previous.disabled = active === 0;
-    next.disabled = active === cards.length - 1;
-  }
-
-  function move(direction) {
-    const nextIndex = Math.max(0, Math.min(cards.length - 1, active + direction));
-    if (nextIndex === active) return;
-    active = nextIndex;
-    render();
-  }
-
-  previous.addEventListener('click', () => move(-1));
-  next.addEventListener('click', () => move(1));
-  function handleWheel(event) {
-    event.preventDefault();
-    const now = Date.now();
-    if (now - lastWheel < 420) return;
-    lastWheel = now;
-    move(event.deltaY > 0 ? 1 : -1);
-  }
-
-  // The viewport is intentionally fixed: the page scroll gesture advances the
-  // dial instead of moving the document behind it.
-  document.addEventListener('wheel', handleWheel, { passive: false });
-  document.addEventListener('pointerdown', (event) => { startY = event.clientY; windowEl.setPointerCapture?.(event.pointerId); });
-  document.addEventListener('pointerup', (event) => {
-    const delta = startY - event.clientY;
-    if (Math.abs(delta) > 36) move(delta > 0 ? 1 : -1);
-  });
-  window.addEventListener('keydown', (event) => {
-    if (/input|textarea|select/i.test(document.activeElement?.tagName || '')) return;
-    if (event.key === 'ArrowDown' || event.key === 'PageDown') { event.preventDefault(); move(1); }
-    if (event.key === 'ArrowUp' || event.key === 'PageUp') { event.preventDefault(); move(-1); }
-    if (event.key === 'Home') { active = 0; render(); }
-    if (event.key === 'End') { active = cards.length - 1; render(); }
-  });
-  window.addEventListener('resize', render);
-  if (reduced) track.style.transition = 'none';
-  render();
+  collectServerCards();
+  empty.hidden = grid.children.length > 0;
   hydratePublishedCritiques();
 }());
 </script>
