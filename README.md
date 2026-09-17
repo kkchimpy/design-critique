@@ -59,13 +59,13 @@ Edit `backend/config.py` to choose the council and chairman models available thr
 
 ```python
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "openai/gpt-5.6-luna",
+    "google/gemini-3.7-flash",
+    "meta/muse-spark-1.1",
+    "qwen/qwen3.8-27b",
 ]
 
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+CHAIRMAN_MODEL = "google/gemini-3.7-flash"
 ```
 
 For image critiques, choose models that support image input. OpenRouter model IDs and capabilities change over time, so check the model documentation before replacing these defaults.

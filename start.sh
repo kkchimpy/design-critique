@@ -24,7 +24,7 @@ echo "Syncing Python dependencies…"
 uv sync --quiet
 ok "Python dependencies ready"
 
-echo "Starting servers…"
+echo "Starting server…"
 uv run python -m backend.main &
 BACKEND_PID=$!
 
