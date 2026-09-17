@@ -136,7 +136,7 @@ body{position:fixed;inset:0;background:var(--surface-alt);color:var(--color-type
 .app-input{font:600 18px/1.4 var(--font-sans);color:var(--color-type-default);
   background:var(--color-surface-default);border:1px dashed var(--color-line-dashed);
   border-radius:0;padding:4px 8px;min-width:0;max-width:100%}
-.st-media{position:relative;flex:1;min-height:320px;background:var(--surface-alt);overflow:hidden}
+.st-media{position:relative;flex:1;min-height:320px;background:var(--surface-alt);overflow:visible}
 #stPins{position:absolute}
 #stPinDots{position:absolute;inset:0}
 .st-media img{width:100%;height:100%;display:block}
@@ -328,7 +328,7 @@ body{position:fixed;inset:0;background:var(--surface-alt);color:var(--color-type
 #vx .sec.next h2{color:var(--info)}
 #vx .sec h3{margin:0;font-size:var(--t-md);font-weight:600;line-height:1.4;color:var(--color-type-secondary)}
 #vx .sec p{margin:0;font-size:var(--b-md);line-height:1.55;color:var(--color-type-muted)}
-#vx .sec ul{margin:0;padding-left:1.5em;font-size:var(--b-md);line-height:1.55;color:var(--color-type-muted)}
+#vx .sec ul{margin:0;padding-left:1.5em;font-size:var(--b-md);line-height:1.55;}
 #vx .sec li{margin:6px 0}
 #vx .sec b{font-weight:700}
 #vx .sec summary{cursor:pointer;font-weight:600}
