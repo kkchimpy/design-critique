@@ -20,21 +20,9 @@ if ! command -v uv &>/dev/null; then
 fi
 ok "uv $(uv --version | awk '{print $2}')"
 
-if ! command -v node &>/dev/null; then
-  fail "Node.js is required (https://nodejs.org). Install it and re-run."
-fi
-ok "node $(node --version)"
-
 echo "Syncing Python dependencies…"
 uv sync --quiet
 ok "Python dependencies ready"
-
-FRONTEND="$ROOT/frontend"
-if [[ ! -d "$FRONTEND/node_modules" || "$FRONTEND/package.json" -nt "$FRONTEND/node_modules" ]]; then
-  echo "Installing frontend dependencies…"
-  npm --prefix "$FRONTEND" install --silent
-fi
-ok "Frontend dependencies ready"
 
 echo "Starting servers…"
 uv run python -m backend.main &
@@ -48,14 +36,11 @@ if ! curl -sf http://localhost:8001/health &>/dev/null; then
   kill "$BACKEND_PID" 2>/dev/null || true
   fail "Backend failed to start."
 fi
-
-npm --prefix "$FRONTEND" run dev -- --open &>/dev/null &
-FRONTEND_PID=$!
-
 ok "Backend  → http://localhost:8001"
-ok "Frontend → http://localhost:5173"
+
+ok "Frontend → http://localhost:8001 (vanilla, no Node needed)"
+cleanup() { kill "$BACKEND_PID" 2>/dev/null; exit; }
 echo -e "\n${BOLD}Press Ctrl-C to stop.${NC}\n"
 
-cleanup() { kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null; exit; }
 trap cleanup SIGINT SIGTERM
 wait

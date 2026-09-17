@@ -22,6 +22,46 @@ def _untrusted(value: object) -> str:
     return f"\nBEGIN UNTRUSTED CONTENT\n{str(value)}\nEND UNTRUSTED CONTENT\n"
 
 
+def _format_stage_results(responses: Dict[str, Optional[Dict[str, Any]]], *, ranking: bool = False) -> List[Dict[str, Any]]:
+    """Keep only successful replies; with ranking=True attach the parsed FINAL RANKING."""
+    results = []
+    for model, response in responses.items():
+        if response is None:
+            continue
+        text = (response or {}).get("content", "")
+        item: Dict[str, Any] = {"model": model}
+        if ranking:
+            item["ranking"] = text
+            item["parsed_ranking"] = parse_ranking_from_text(text)
+        else:
+            item["response"] = text
+        results.append(item)
+    return results
+
+
+def _label_map(stage1_results: List[Dict[str, Any]], prefix: str) -> Tuple[List[str], Dict[str, str]]:
+    """Anonymized labels (A, B, C…) plus label→model mapping for one ranking round."""
+    labels = [chr(65 + i) for i in range(len(stage1_results))]
+    return labels, {
+        f"{prefix} {label}": result["model"]
+        for label, result in zip(labels, stage1_results)
+    }
+
+
+def _short_title(text: str, *, titlecase: bool = False) -> str:
+    """First five words of text, clipped to 50 chars; '' when there is nothing usable."""
+    words = re.findall(r"[\w'-]+", text.strip())
+    title = " ".join(words[:5]).strip(" '-")[:50]
+    return title.title() if titlecase and title else title
+
+
+def _chairman_result(active_chairman: str, response: Optional[Dict[str, Any]], fallback: str) -> Dict[str, Any]:
+    """Chairman reply or a uniform error dict when the chairman call fails."""
+    if response is None:
+        return {"model": active_chairman, "response": fallback}
+    return {"model": active_chairman, "response": response.get("content", "")}
+
+
 def _compact_principles(principles: str, stage0_result: Optional[Dict[str, Any]] = None) -> str:
     """Use the shared framework selection instead of repeating the full library."""
     if not stage0_result:
@@ -37,38 +77,21 @@ def _compact_principles(principles: str, stage0_result: Optional[Dict[str, Any]]
     return compact or principles
 
 
-async def stage1_collect_responses(user_query: str, models: Optional[List[str]] = None) -> List[Dict[str, Any]]:
-    """
-    Stage 1: Collect individual responses from all council models.
-
-    Args:
-        user_query: The user's question
-        models: Optional list of model IDs to use (falls back to COUNCIL_MODELS)
-
-    Returns:
-        List of dicts with 'model' and 'response' keys
-    """
-    messages = [{"role": "user", "content": user_query}]
+async def stage1_collect_responses(user_query: str, models: Optional[List[str]] = None, custom_context: str = "", errors: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+    prompt = f"{custom_context.strip()}\n\n{user_query}".strip() if custom_context.strip() else user_query
+    messages = [{"role": "user", "content": prompt}]
 
     # Query all models in parallel
-    responses = await query_models_parallel(models or COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(models or COUNCIL_MODELS, messages, errors=errors)
 
-    # Format results
-    stage1_results = []
-    for model, response in responses.items():
-        if response is not None:  # Only include successful responses
-            stage1_results.append({
-                "model": model,
-                "response": response.get('content', '')
-            })
-
-    return stage1_results
+    return _format_stage_results(responses)
 
 
 async def stage2_collect_rankings(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
     models: Optional[List[str]] = None,
+    errors: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
@@ -81,14 +104,8 @@ async def stage2_collect_rankings(
     Returns:
         Tuple of (rankings list, label_to_model mapping)
     """
-    # Create anonymized labels for responses (Response A, Response B, etc.)
-    labels = [chr(65 + i) for i in range(len(stage1_results))]  # A, B, C, ...
-
-    # Create mapping from label to model name
-    label_to_model = {
-        f"Response {label}": result['model']
-        for label, result in zip(labels, stage1_results)
-    }
+    # Anonymized labels (Response A, Response B, etc.)
+    labels, label_to_model = _label_map(stage1_results, "Response")
 
     # Build the ranking prompt
     responses_text = "\n\n".join([
@@ -130,27 +147,18 @@ Now provide your evaluation and ranking:"""
     messages = [{"role": "user", "content": ranking_prompt}]
 
     # Get rankings from all council models in parallel
-    responses = await query_models_parallel(models or COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(models or COUNCIL_MODELS, messages, errors=errors)
 
-    # Format results
-    stage2_results = []
-    for model, response in responses.items():
-        if response is not None:
-            full_text = response.get('content', '')
-            parsed = parse_ranking_from_text(full_text)
-            stage2_results.append({
-                "model": model,
-                "ranking": full_text,
-                "parsed_ranking": parsed
-            })
-
-    return stage2_results, label_to_model
+    return _format_stage_results(responses, ranking=True), label_to_model
 
 
 async def stage3_synthesize_final(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
-    stage2_results: List[Dict[str, Any]]
+    stage2_results: List[Dict[str, Any]],
+    chairman_model: Optional[str] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes final response.
@@ -176,6 +184,9 @@ async def stage3_synthesize_final(
 
     chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
 
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
+
 Original Question: {_untrusted(user_query)}
 
 STAGE 1 - Individual Responses:
@@ -194,19 +205,9 @@ Provide a clear, well-reasoned final answer that represents the council's collec
     messages = [{"role": "user", "content": chairman_prompt}]
 
     # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
-
-    if response is None:
-        # Fallback if chairman fails
-        return {
-            "model": CHAIRMAN_MODEL,
-            "response": "Error: Unable to generate final synthesis."
-        }
-
-    return {
-        "model": CHAIRMAN_MODEL,
-        "response": response.get('content', '')
-    }
+    active_chairman = chairman_model or CHAIRMAN_MODEL
+    response = await query_model(active_chairman, messages, errors=errors)
+    return _chairman_result(active_chairman, response, "Error: Unable to generate final synthesis.")
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:
@@ -292,7 +293,7 @@ def calculate_aggregate_rankings(
     return aggregate
 
 
-async def generate_conversation_title(user_query: str) -> str:
+def generate_conversation_title(user_query: str) -> str:
     """
     Generate a short title for a conversation based on the first user message.
 
@@ -304,53 +305,8 @@ async def generate_conversation_title(user_query: str) -> str:
     """
     # Titles do not need a second paid model call. Derive a short local title
     # from the first meaningful words instead.
-    words = re.findall(r"[\w'-]+", user_query.strip())
-    title = " ".join(words[:5]).strip(" '-")
-    return title[:50] if title else "New Conversation"
+    return _short_title(user_query) or "New Conversation"
 
-
-async def run_full_council(user_query: str, models: Optional[List[str]] = None) -> Tuple[List, List, Dict, Dict]:
-    """
-    Run the complete 3-stage council process.
-
-    Args:
-        user_query: The user's question
-        models: Optional list of model IDs to use (falls back to COUNCIL_MODELS)
-
-    Returns:
-        Tuple of (stage1_results, stage2_results, stage3_result, metadata)
-    """
-    # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query, models=models)
-
-    # If no models responded successfully, return error
-    if not stage1_results:
-        return [], [], {
-            "model": "error",
-            "response": "All models failed to respond. Please try again."
-        }, {"council_models": list(models or COUNCIL_MODELS)}
-
-    # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results, models=models)
-
-    # Calculate aggregate rankings
-    aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-
-    # Stage 3: Synthesize final answer
-    stage3_result = await stage3_synthesize_final(
-        user_query,
-        stage1_results,
-        stage2_results
-    )
-
-    # Prepare metadata
-    metadata = {
-        "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings,
-        "council_models": list(models or COUNCIL_MODELS),
-    }
-
-    return stage1_results, stage2_results, stage3_result, metadata
 
 
 # ---------------------------------------------------------------------------
@@ -421,6 +377,9 @@ def _design_image_content(image_data_url: str, text: str) -> List[Dict[str, Any]
 async def stage0_ground_truth(
     image_data_url: str,
     user_query: str,
+    chairman_model: Optional[str] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Stage 0 (design mode): Establish shared ground truth before persona critiques.
@@ -438,6 +397,9 @@ async def stage0_ground_truth(
     goal = user_query.strip() or "Infer from the screen."
 
     prompt = f"""You are preparing the ground truth for a design council critique. Look carefully at this design image.
+
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
 
 User's stated goal for this design:
 {goal}
@@ -466,7 +428,7 @@ Return ONLY valid JSON."""
 
     messages = [{"role": "user", "content": _design_image_content(image_data_url, prompt)}]
 
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    response = await query_model(chairman_model or CHAIRMAN_MODEL, messages, errors=errors)
     if response is None:
         return {}
 
@@ -483,6 +445,9 @@ async def stage1_collect_design_feedback(
     user_query: str,
     models: Optional[List[str]] = None,
     stage0_result: Optional[Dict[str, Any]] = None,
+    chairman_model: Optional[str] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Stage 1 (design mode): each council persona critiques the uploaded design
@@ -531,6 +496,9 @@ Use the evidence catalog references (E01, E02…) when citing specific elements 
 
     prompt = f"""You are a member of a design council reviewing an uploaded design (screen, mockup, wireframe, or Figma export). Critique it through YOUR persona's lens.
 
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
+
 User's context / goal for this design:
 {goal}
 {ground_truth_block}
@@ -550,23 +518,17 @@ Be specific and reference what is actually visible in the image. Avoid generic a
 
     messages = [{"role": "user", "content": _design_image_content(image_data_url, prompt)}]
 
-    responses = await query_models_parallel(models or COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(models or COUNCIL_MODELS, messages, errors=errors)
 
-    stage1_results = []
-    for model, response in responses.items():
-        if response is not None:
-            stage1_results.append({
-                "model": model,
-                "response": response.get("content", "")
-            })
-
-    return stage1_results
+    return _format_stage_results(responses)
 
 
 async def stage2_collect_design_rankings(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
     models: Optional[List[str]] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2 (design mode): each persona ranks the anonymized critiques by how
@@ -575,12 +537,7 @@ async def stage2_collect_design_rankings(
     Returns:
         Tuple of (rankings list, label_to_model mapping).
     """
-    labels = [chr(65 + i) for i in range(len(stage1_results))]
-
-    label_to_model = {
-        f"Critique {label}": result["model"]
-        for label, result in zip(labels, stage1_results)
-    }
+    labels, label_to_model = _label_map(stage1_results, "Critique")
 
     critiques_text = "\n\n".join([
         f"Critique {label}:\n{result['response']}"
@@ -590,6 +547,9 @@ async def stage2_collect_design_rankings(
     rubric_text = "\n".join(f"- {item}" for item in DESIGN_RUBRIC)
 
     ranking_prompt = f"""You are evaluating different design critiques of the same uploaded design.
+
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
 
 Design context / goal:
 {_untrusted(user_query.strip() or "Not specified.")}
@@ -615,20 +575,9 @@ Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
 
-    responses = await query_models_parallel(models or COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(models or COUNCIL_MODELS, messages, errors=errors)
 
-    stage2_results = []
-    for model, response in responses.items():
-        if response is not None:
-            full_text = response.get("content", "")
-            parsed = parse_ranking_from_text(full_text)
-            stage2_results.append({
-                "model": model,
-                "ranking": full_text,
-                "parsed_ranking": parsed
-            })
-
-    return stage2_results, label_to_model
+    return _format_stage_results(responses, ranking=True), label_to_model
 
 
 async def stage3_synthesize_design_verdict(
@@ -636,6 +585,9 @@ async def stage3_synthesize_design_verdict(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
     stage2_results: List[Dict[str, Any]],
+    chairman_model: Optional[str] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Stage 3 (design mode): the Chairman synthesizes a single final design
@@ -657,6 +609,9 @@ async def stage3_synthesize_design_verdict(
     rubric_text = "\n".join(f"- {item}" for item in DESIGN_RUBRIC)
 
     chairman_prompt = f"""You are the Chairman of a design council. Several reviewers critiqued the uploaded design, then ranked each other's critiques. Synthesize everything (and the image itself) into one final verdict.
+
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
 
 Design context / goal:
 {_untrusted(user_query.strip() or "Not specified; infer from the screen.")}
@@ -689,18 +644,9 @@ Base every point on what is actually visible in the design. Be decisive and spec
 
     messages = [{"role": "user", "content": _design_image_content(image_data_url, chairman_prompt)}]
 
-    response = await query_model(CHAIRMAN_MODEL, messages)
-
-    if response is None:
-        return {
-            "model": CHAIRMAN_MODEL,
-            "response": "Error: Unable to generate final design verdict."
-        }
-
-    return {
-        "model": CHAIRMAN_MODEL,
-        "response": response.get("content", "")
-    }
+    active_chairman = chairman_model or CHAIRMAN_MODEL
+    response = await query_model(active_chairman, messages, errors=errors)
+    return _chairman_result(active_chairman, response, "Error: Unable to generate final design verdict.")
 
 
 def _parse_annotations_json(raw: str) -> List[Dict[str, Any]]:
@@ -772,6 +718,9 @@ async def extract_design_annotations(
     image_data_url: str,
     user_query: str,
     verdict_markdown: str,
+    chairman_model: Optional[str] = None,
+    custom_context: str = "",
+    errors: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Localize the council's verdict onto the image as annotation pins.
@@ -785,6 +734,9 @@ async def extract_design_annotations(
         where x/y are percentages (0-100) of the image's width/height.
     """
     prompt = f"""You are annotating a design screenshot for an interactive review UI.
+
+CUSTOM REVIEW CONTEXT:
+{_untrusted(custom_context) if custom_context.strip() else "None provided."}
 
 Below is the council's final verdict on this design. Your job is to place pins on the ACTUAL image at the precise location each point refers to, so a reviewer can click a pin and read the related feedback.
 
@@ -807,14 +759,14 @@ Spread the pins to the real on-screen elements they describe — do not stack th
 
     messages = [{"role": "user", "content": _design_image_content(image_data_url, prompt)}]
 
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    response = await query_model(chairman_model or CHAIRMAN_MODEL, messages, errors=errors)
     if response is None:
         return []
 
     return _parse_annotations_json(response.get("content", ""))
 
 
-async def generate_design_title(
+def generate_design_title(
     user_query: str,
     stage0_result: Optional[Dict[str, Any]] = None,
 ) -> str:
@@ -836,11 +788,10 @@ async def generate_design_title(
             flags=re.IGNORECASE,
         ).strip()
         if cleaned and len(cleaned) > 3:
-            words = re.findall(r"[\w'-]+", cleaned)
-            title = " ".join(words[:5]).strip(" '-")
+            title = _short_title(cleaned, titlecase=True)
             if title:
-                return title[:50].title()
-        return await generate_conversation_title(f"Design review: {base}")
+                return title
+        return generate_conversation_title(f"Design review: {base}")
 
     # If user prompt is empty or just an image, extract from stage0 ground truth if available
     if stage0_result and isinstance(stage0_result, dict):
@@ -849,65 +800,13 @@ async def generate_design_title(
 
         if screen_type and screen_type.lower() not in ("unknown", "screen", "web page", "app"):
             clean_type = screen_type.split("/")[0].split("—")[0].strip()
-            words = re.findall(r"[\w'-]+", clean_type)
-            if words:
-                return " ".join(words[:5]).title()[:50]
+            title = _short_title(clean_type, titlecase=True)
+            if title:
+                return title
 
         if user_goal:
-            words = re.findall(r"[\w'-]+", user_goal)
-            if words:
-                return " ".join(words[:5]).title()[:50]
+            title = _short_title(user_goal, titlecase=True)
+            if title:
+                return title
 
     return "Design Critique"
-
-
-async def run_full_design_council(
-    image_data_url: str,
-    user_query: str,
-    models: Optional[List[str]] = None,
-) -> Tuple[List, List, Dict, Dict]:
-    """
-    Run the complete 3-stage design critique process (image-triggered).
-
-    Returns:
-        Tuple of (stage1_results, stage2_results, stage3_result, metadata).
-    """
-    stage0_result = await stage0_ground_truth(image_data_url, user_query)
-
-    stage1_results = await stage1_collect_design_feedback(
-        image_data_url, user_query, models=models, stage0_result=stage0_result
-    )
-
-    if not stage1_results:
-        return [], [], {
-            "model": "error",
-            "response": "All reviewers failed to respond. The selected models may not support image input."
-        }, {
-            "mode": "design",
-            "council_models": list(models or COUNCIL_MODELS),
-        }
-
-    stage2_results, label_to_model = await stage2_collect_design_rankings(
-        user_query, stage1_results, models=models
-    )
-
-    aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-
-    stage3_result = await stage3_synthesize_design_verdict(
-        image_data_url, user_query, stage1_results, stage2_results
-    )
-
-    annotations = await extract_design_annotations(
-        image_data_url, user_query, stage3_result.get("response", "")
-    )
-
-    metadata = {
-        "label_to_model": label_to_model,
-        "aggregate_rankings": aggregate_rankings,
-        "annotations": annotations,
-        "mode": "design",
-        "stage0": stage0_result,
-        "council_models": list(models or COUNCIL_MODELS),
-    }
-
-    return stage1_results, stage2_results, stage3_result, metadata

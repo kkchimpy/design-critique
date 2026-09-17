@@ -1,0 +1,47 @@
+:root {
+  /* Canonical palette — only tokens referenced by vanilla/ or backend/templates. */
+  --ink: #292827;
+  --secondary-text: #666666;
+  --paper: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #f7f5f2;
+  --border: rgba(41, 40, 39, 0.14);
+  --border-strong: rgba(41, 40, 39, 0.22);
+  --danger: #d85757;
+  --info: #4c7bd9;
+  --accent-purple: #714cb6;
+
+  /* Severity tiers actually referenced (moderate/minor are hardcoded in app CSS). */
+  --severity-critical: #ad2e2e;
+  --severity-major: #a6591a;
+  --severity-note: #297338;
+
+  /* Layout */
+  --radius-card: 12px;
+  --radius-small: 4px;
+  --base-spacing: 4px;
+  --container-max: 1440px;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --shadow-large: 0 18px 40px rgba(41, 40, 39, 0.08);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* App aliases (single indirection over the palette above) */
+  --color-surface-default: var(--surface);
+  --color-type-default: var(--ink);
+  --color-type-secondary: var(--secondary-text);
+  --color-type-muted: rgba(41, 40, 39, 0.5);
+  --color-interactive-primary: var(--ink);
+  --color-interactive-on-primary: var(--surface);
+  --color-interactive-secondary-hover: rgba(41, 40, 39, 0.06);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-cta-disabled-bg: #a39e98;
+  --color-input-placeholder: #9a9a9a;
+  --color-line-dashed: #615d59;
+  --surface-chip: #e6e6e6;
+  --pill-major-bg:#ffb084; --pill-major-fg:var(--severity-major);
+  --pill-moderate-bg:#b8a4ed; --pill-moderate-fg:var(--accent-purple);
+  --pill-topic-bg:#ff6b5a; --pill-topic-fg:var(--severity-critical);
+  --shadow-xlarge: var(--shadow-large);
+}

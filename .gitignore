@@ -14,8 +14,6 @@ wheels/
 # .env file. These entries only guard against anyone adding one locally.
 .env
 .env.*
-frontend/.env
-frontend/.env.local
 
 # Local/generated app output. Keep folder structure via .gitkeep files,
 # but do not track user-generated answers, pages, or conversations.
@@ -30,12 +28,12 @@ data/conversations/*
 # Generated static site output
 _site/
 
+# Token-optimizer runtime databases (local agent state, never commit)
+token-optimizer/*.db
+token-optimizer/*.db-shm
+token-optimizer/*.db-wal
+token-optimizer/sessions/
+
 # OS metadata
 .DS_Store
 **/.DS_Store
-
-# Frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-frontend/test-results/

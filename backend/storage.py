@@ -1,122 +1,30 @@
 """JSON-based storage for conversations."""
 
 import json
+import logging
 import os
+import re
 import shutil
-import tempfile
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 from .config import DATA_DIR
 
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_CONVERSATION_TITLE = "New Conversation"
+
 _STORAGE_LOCK = threading.RLock()
 
-
-def _ensure_dir(path: str):
-    Path(path).mkdir(parents=True, exist_ok=True)
-
-
-def _load_conversation_or_raise(conversation_id: str) -> Dict[str, Any]:
-    conversation = get_conversation(conversation_id)
-    if conversation is None:
-        raise ValueError(f"Conversation {conversation_id} not found")
-    return conversation
-
-
-def _conversation_mode(messages: List[Dict[str, Any]]) -> str:
-    for message in messages:
-        if message.get("role") == "assistant" and message.get("mode") == "design":
-            return "design"
-    return "text"
-
-
-def ensure_data_dir(storage_dir: Optional[str] = None):
-    """Ensure the data directory exists."""
-    _ensure_dir(storage_dir or DATA_DIR)
-
-
-def _safe_conversation_id(conversation_id: str) -> Optional[str]:
-    """Return a canonical UUID string, or None if the value is not a UUID."""
-    try:
-        return str(uuid.UUID(str(conversation_id)))
-    except (ValueError, TypeError, AttributeError):
-        return None
-
-
-def get_conversation_path(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[str]:
-    """Get the file path for a conversation, or None for an invalid id."""
-    safe_id = _safe_conversation_id(conversation_id)
-    if safe_id is None:
-        return None
-    data_root = Path(storage_dir or DATA_DIR).resolve()
-    path = (data_root / f"{safe_id}.json").resolve()
-    try:
-        path.relative_to(data_root)
-    except ValueError:
-        return None
-    return str(path)
-
-
-def create_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Create a new conversation.
-
-    Args:
-        conversation_id: Unique identifier for the conversation
-        storage_dir: Optional override for data directory
-
-    Returns:
-        New conversation dict
-    """
-    ensure_data_dir(storage_dir)
-
-    conversation = {
-        "id": conversation_id,
-        "created_at": datetime.utcnow().isoformat(),
-        "title": DEFAULT_CONVERSATION_TITLE,
-        "messages": []
-    }
-
-    # Save to file
-    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
-    if path is None:
-        raise ValueError("Invalid conversation id")
-    _atomic_write(path, conversation)
-
-    return conversation
-
-
-def get_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """
-    Load a conversation from storage.
-
-    Args:
-        conversation_id: Unique identifier for the conversation
-        storage_dir: Optional override for data directory
-
-    Returns:
-        Conversation dict or None if not found
-    """
-    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
-    if path is None or not os.path.exists(path):
-        return None
-
-    try:
-        with _STORAGE_LOCK, open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
-def _atomic_write(path: str, conversation: Dict[str, Any]):
-    """Write a conversation without exposing a partially-written JSON file."""
-    directory = os.path.dirname(path)
+def _write_conversation(path: str, conversation: Dict[str, Any]):
+    """Write a conversation to disk."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     with _STORAGE_LOCK:
-        fd, temporary_path = tempfile.mkstemp(prefix='.conversation-', suffix='.tmp', dir=directory)
+        import tempfile
+        fd, temporary_path = tempfile.mkstemp(prefix='.conversation-', suffix='.tmp', dir=os.path.dirname(path))
         try:
             with os.fdopen(fd, 'w', encoding='utf-8') as f:
                 json.dump(conversation, f, indent=2, ensure_ascii=False)
@@ -129,43 +37,117 @@ def _atomic_write(path: str, conversation: Dict[str, Any]):
                 os.unlink(temporary_path)
 
 
-def save_conversation(conversation: Dict[str, Any], storage_dir: Optional[str] = None):
+def _conversation_mode(messages: List[Dict[str, Any]]) -> str:
+    for message in messages:
+        if message.get("role") == "assistant" and message.get("mode") == "design":
+            return "design"
+    return "text"
+
+
+def ensure_data_dir():
+    """Ensure the data directory exists."""
+    Path(DATA_DIR).mkdir(parents=True, exist_ok=True)
+
+
+def _safe_conversation_id(conversation_id: str) -> Optional[str]:
+    """Return a canonical UUID string, or None if the value is not a UUID."""
+    try:
+        return str(uuid.UUID(str(conversation_id)))
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
+def slug_from_title(title: str, conv_id: str) -> str:
+    """Generate a clean URL slug from title and short UUID prefix."""
+    clean = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")
+    short_hash = (conv_id or "")[:8]
+    if clean and clean not in ("design-critique", "new-conversation", "critique"):
+        return f"{clean[:32]}-{short_hash}" if short_hash else clean[:40]
+    return f"design-critique-{short_hash}" if short_hash else "design-critique"
+
+
+def get_conversation_path(conversation_id: str) -> Optional[str]:
+    """Get the file path for a conversation, or None for an invalid id."""
+    safe_id = _safe_conversation_id(conversation_id)
+    if safe_id is None:
+        return None
+    data_root = Path(DATA_DIR).resolve()
+    path = (data_root / f"{safe_id}.json").resolve()
+    try:
+        path.relative_to(data_root)
+    except ValueError:
+        return None
+    return str(path)
+
+
+def create_conversation(conversation_id: str) -> Dict[str, Any]:
     """
-    Save a conversation to storage.
+    Create a new conversation.
 
     Args:
-        conversation: Conversation dict to save
-        storage_dir: Optional override for data directory
-    """
-    ensure_data_dir(storage_dir)
+        conversation_id: Unique identifier for the conversation
 
-    path = get_conversation_path(conversation['id'], storage_dir=storage_dir)
+    Returns:
+        New conversation dict
+    """
+    ensure_data_dir()
+
+    conversation = {
+        "id": conversation_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "title": DEFAULT_CONVERSATION_TITLE,
+        "app_name": "",
+        "messages": []
+    }
+
+    path = get_conversation_path(conversation_id)
     if path is None:
         raise ValueError("Invalid conversation id")
-    _atomic_write(path, conversation)
+    _write_conversation(path, conversation)
+
+    return conversation
 
 
-def list_conversations(storage_dir: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
     """
-    List all conversations (metadata only).
+    Load a conversation from storage.
 
     Args:
-        storage_dir: Optional override for data directory
+        conversation_id: Unique identifier for the conversation
+
+    Returns:
+        Conversation dict or None if not found
+    """
+    path = get_conversation_path(conversation_id)
+    if path is None or not os.path.exists(path):
+        return None
+
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def list_conversations() -> List[Dict[str, Any]]:
+    """
+    List all conversations (metadata only).
 
     Returns:
         List of conversation metadata dicts
     """
-    ensure_data_dir(storage_dir)
-    target_dir = storage_dir or DATA_DIR
+    ensure_data_dir()
+    target_dir = DATA_DIR
 
     conversations = []
     for filename in os.listdir(target_dir):
         if filename.endswith('.json'):
             path = os.path.join(target_dir, filename)
             try:
-                with _STORAGE_LOCK, open(path, 'r', encoding='utf-8') as f:
+                with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-            except (OSError, json.JSONDecodeError, KeyError, TypeError):
+            except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+                logger.debug("Skipping unreadable conversation file %s: %s", path, exc)
                 continue
             if not isinstance(data, dict) or not data.get("id") or not data.get("created_at"):
                 continue
@@ -186,7 +168,7 @@ def list_conversations(storage_dir: Optional[str] = None) -> List[Dict[str, Any]
     return conversations
 
 
-def add_user_message(conversation_id: str, content: str, image: Optional[str] = None, storage_dir: Optional[str] = None):
+def add_user_message(conversation_id: str, content: str, image: Optional[str] = None):
     """
     Add a user message to a conversation.
 
@@ -194,22 +176,23 @@ def add_user_message(conversation_id: str, content: str, image: Optional[str] = 
         conversation_id: Conversation identifier
         content: User message content
         image: Optional image data URL (design critique mode)
-        storage_dir: Optional override for data directory
     """
-    with _STORAGE_LOCK:
-        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
-        if conversation is None:
-            raise ValueError(f"Conversation {conversation_id} not found")
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
 
-        message: Dict[str, Any] = {
-            "role": "user",
-            "content": content
-        }
-        if image:
-            message["image"] = image
+    message: Dict[str, Any] = {
+        "role": "user",
+        "content": content
+    }
+    if image:
+        message["image"] = image
 
-        conversation.setdefault("messages", []).append(message)
-        save_conversation(conversation, storage_dir=storage_dir)
+    conversation.setdefault("messages", []).append(message)
+    path = get_conversation_path(conversation["id"])
+    if path is None:
+        raise ValueError("Invalid conversation id")
+    _write_conversation(path, conversation)
 
 
 def add_assistant_message(
@@ -220,7 +203,6 @@ def add_assistant_message(
     mode: str = "text",
     annotations: Optional[List[Dict[str, Any]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
-    storage_dir: Optional[str] = None,
 ):
     """
     Add an assistant message with all 3 stages to a conversation.
@@ -233,64 +215,83 @@ def add_assistant_message(
         mode: "text" (default Q&A) or "design" (image critique)
         annotations: Optional list of design annotation pins (design mode only)
         metadata: Optional dictionary of evaluation metadata
-        storage_dir: Optional override for data directory
     """
-    with _STORAGE_LOCK:
-        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
-        if conversation is None:
-            raise ValueError(f"Conversation {conversation_id} not found")
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
 
-        message: Dict[str, Any] = {
-            "role": "assistant",
-            "stage1": stage1,
-            "stage2": stage2,
-            "stage3": stage3,
-            "mode": mode
-        }
-        if annotations is not None:
-            message["annotations"] = annotations
-        if metadata is not None:
-            message["metadata"] = metadata
+    message: Dict[str, Any] = {
+        "role": "assistant",
+        "stage1": stage1,
+        "stage2": stage2,
+        "stage3": stage3,
+        "mode": mode
+    }
+    if annotations is not None:
+        message["annotations"] = annotations
+    if metadata is not None:
+        message["metadata"] = metadata
 
-        conversation.setdefault("messages", []).append(message)
-        save_conversation(conversation, storage_dir=storage_dir)
+    conversation.setdefault("messages", []).append(message)
+    path = get_conversation_path(conversation["id"])
+    if path is None:
+        raise ValueError("Invalid conversation id")
+    _write_conversation(path, conversation)
 
 
-def delete_conversation(conversation_id: str, storage_dir: Optional[str] = None) -> bool:
+def delete_conversation(conversation_id: str) -> bool:
     """
     Delete a conversation JSON file from storage.
 
     Returns:
         True if deleted, False if not found.
     """
-    path = get_conversation_path(conversation_id, storage_dir=storage_dir)
+    path = get_conversation_path(conversation_id)
     if path is None:
         return False
-    with _STORAGE_LOCK:
-        if not os.path.exists(path):
-            return False
-        os.remove(path)
-        return True
+    if not os.path.exists(path):
+        return False
+    os.remove(path)
+    return True
 
 
-def update_conversation_title(conversation_id: str, title: str, storage_dir: Optional[str] = None):
+def update_conversation_title(conversation_id: str, title: str):
     """
     Update the title of a conversation.
 
     Args:
         conversation_id: Conversation identifier
         title: New title for the conversation
-        storage_dir: Optional override for data directory
     """
-    with _STORAGE_LOCK:
-        conversation = get_conversation(conversation_id, storage_dir=storage_dir)
-        if conversation is None:
-            raise ValueError(f"Conversation {conversation_id} not found")
-        conversation["title"] = str(title).strip()[:100] or DEFAULT_CONVERSATION_TITLE
-        save_conversation(conversation, storage_dir=storage_dir)
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+    conversation["title"] = str(title).strip()[:100] or DEFAULT_CONVERSATION_TITLE
+    path = get_conversation_path(conversation["id"])
+    if path is None:
+        raise ValueError("Invalid conversation id")
+    _write_conversation(path, conversation)
 
 
-def get_latest_design_verdict(conversation_id: str, storage_dir: Optional[str] = None) -> Optional[Dict[str, Any]]:
+def update_conversation_app_name(conversation_id: str, app_name: str):
+    """
+    Update the published app/product name for a conversation (Figma App Details row).
+
+    Args:
+        conversation_id: Conversation identifier
+        app_name: New app/product name, empty string clears it
+    """
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        raise ValueError(f"Conversation {conversation_id} not found")
+    conversation["app_name"] = str(app_name).strip()[:120]
+    path = get_conversation_path(conversation["id"])
+    if path is None:
+        raise ValueError("Invalid conversation id")
+    _write_conversation(path, conversation)
+
+
+def get_latest_design_verdict(conversation_id: str) -> Optional[Dict[str, Any]]:
     """
     Find the most recent design-mode verdict in a conversation, along with the
     user message (and image) that prompted it.
@@ -298,7 +299,7 @@ def get_latest_design_verdict(conversation_id: str, storage_dir: Optional[str] =
     Returns a dict with keys: title, context, verdict, image, council, or None
     if the conversation has no design-mode verdict.
     """
-    conversation = get_conversation(conversation_id, storage_dir=storage_dir)
+    conversation = get_conversation(conversation_id)
     if conversation is None:
         return None
 
@@ -330,6 +331,7 @@ def get_latest_design_verdict(conversation_id: str, storage_dir: Optional[str] =
             return {
                 "title": title,
                 "context": context,
+                "app_name": conversation.get("app_name", ""),
                 "verdict": verdict,
                 "image": image,
                 "annotations": msg.get("annotations") or [],
@@ -344,9 +346,8 @@ def reset_all_data():
     """Remove stored conversations and generated artifacts, then recreate folders."""
     targets = [DATA_DIR]
 
-    with _STORAGE_LOCK:
-        for target in targets:
-            if os.path.exists(target):
-                shutil.rmtree(target)
+    for target in targets:
+        if os.path.exists(target):
+            shutil.rmtree(target)
 
-        ensure_data_dir()
+    ensure_data_dir()

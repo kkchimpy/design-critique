@@ -24,7 +24,6 @@ This is intended to run on your own computer, not as a hosted shared service.
 This project is meant to be cloned and run on your own computer. Do not deploy it as a public website.
 
 - The API listens on `127.0.0.1` only, so other devices on your network cannot reach it.
-- The local UI fetches a short-lived process token and sends it as `X-App-Token`. This reduces ordinary browser CSRF risk, but does not protect against untrusted local software.
 - Conversation files stay in `data/conversations/` and are gitignored. Do not commit that folder.
 - Your OpenRouter key stays in the browser; never put it in the repo or a `.env` file.
 - Uploaded screenshots are sent to OpenRouter when you run a review. Treat exported HTML files as confidential if the design is.
@@ -35,7 +34,6 @@ This project is meant to be cloned and run on your own computer. Do not deploy i
 
 - Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
-- Node.js 20.19+ or 22.12+ (required by Vite 7; check with `node --version`)
 - An OpenRouter account with credits or an appropriate spending limit
 
 **macOS / Linux:**
@@ -46,21 +44,13 @@ This project is meant to be cloned and run on your own computer. Do not deploy i
 
 **Windows:** `start.sh` is a bash script. Run it from Git Bash or WSL, or use the manual steps below in PowerShell/cmd.
 
-Then open [http://localhost:5173](http://localhost:5173), paste an OpenRouter key, and start a review. No server `.env` file is required.
+Then open [http://localhost:8001](http://localhost:8001), paste an OpenRouter key, and start a review. No server `.env` file is required.
 
 ### Manual start
 
 ```bash
 uv sync
 uv run python -m backend.main
-```
-
-In another terminal:
-
-```bash
-cd frontend
-npm install
-npm run dev
 ```
 
 ## Configure models
@@ -78,7 +68,7 @@ COUNCIL_MODELS = [
 CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
 ```
 
-For image critiques, choose models that support image input. OpenRouter model IDs and capabilities change over time, so check the model documentation before replacing these defaults. On startup, the backend checks the configured model IDs against OpenRouter's public model list and prints a warning to the terminal if any are no longer available — watch the terminal output the first time you run `./start.sh`.
+For image critiques, choose models that support image input. OpenRouter model IDs and capabilities change over time, so check the model documentation before replacing these defaults.
 
 Only one design or text review runs at a time per backend process; a second concurrent request waits briefly and then returns a "try again shortly" message instead of queuing indefinitely.
 
@@ -94,6 +84,12 @@ Only one design or text review runs at a time per backend process; a second conc
 
 After a design verdict is ready, choose **Download HTML verdict**. The generated file contains inline CSS, JavaScript, the uploaded image, annotations, and the sanitized Markdown verdict. It can be opened locally or uploaded to any static host.
 
+## Design system
+
+`design-system/tokens.css` is the single canonical source for the shared palette, spacing, radii, and layout primitives used by the local UI and the exported verdict HTML. The backend reads this file directly (`backend/config.py`'s `TOKENS_CSS`) instead of keeping a second copy, so there is only ever one place to edit.
+
+When the visual language originates from a Figma file, treat those Figma values as authoritative and update `design-system/tokens.css` to match — never hand-edit a token value only in app CSS or a backend template. See `design-system/README.md` for the full rule set.
+
 ## Project structure
 
 | Layer | Location |
@@ -102,17 +98,12 @@ After a design verdict is ready, choose **Download HTML verdict**. The generated
 | Council orchestration | `backend/council.py` |
 | OpenRouter client | `backend/openrouter.py` |
 | HTML export | `backend/export.py` and `backend/templates/` |
-| React frontend | `frontend/src/` |
+| Design tokens | `design-system/tokens.css` |
+| Vanilla UI | `vanilla/` (served by the backend, no build step) |
 | Design principles | `skills/design-principles/` |
 | Local conversation data | `data/conversations/` |
 
 ## Checks
-
-```bash
-cd frontend
-npm run build
-npm run lint
-```
 
 ```bash
 uv run python -m compileall -q backend
